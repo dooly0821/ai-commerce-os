@@ -42,6 +42,10 @@ export default function AetherOS_ChromeGlass_Premium() {
   // ✨ JS 기반 입자 애니메이션 배경을 위한 Ref
   const canvasRef = useRef(null);
 
+  // ✨ 마우스 위치 추적을 위한 상태 및 효과 추가 (3D 제목 모션)
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const chromeTextRef = useRef(null);
+
   useEffect(() => {
     const savedName = localStorage.getItem("aether-name");
     const savedImg = localStorage.getItem("aether-profile");
@@ -87,7 +91,30 @@ export default function AetherOS_ChromeGlass_Premium() {
       };
       animate();
     }
-  }, [isDarkMode]);
+
+    // ✨ 마우스 움직임 감지 이벤트 리스너 추가 (첫 화면용)
+    const handleMouseMove = (e) => {
+        if (!myName) { // 로그인 전 설정 화면에서만 작동
+            const text = chromeTextRef.current;
+            if (text) {
+                const rect = text.getBoundingClientRect();
+                const textCenterX = rect.left + rect.width / 2;
+                const textCenterY = rect.top + rect.height / 2;
+                
+                // 마우스와 제목 중심 간의 거리 계산 및 부드러운 회전 값 도출
+                const rotateX = (e.clientY - textCenterY) * -0.05; 
+                const rotateY = (e.clientX - textCenterX) * 0.05;
+
+                // CSS 변수로 회전 값 주입
+                text.style.setProperty('--rotateX', `${rotateX}deg`);
+                text.style.setProperty('--rotateY', `${rotateY}deg`);
+            }
+        }
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+
+  }, [isDarkMode, myName]);
 
   const toggleTheme = () => {
     const newMode = !isDarkMode;
@@ -125,15 +152,6 @@ export default function AetherOS_ChromeGlass_Premium() {
     }
     await setDoc(doc(db, "rooms", name), { name: name, updatedAt: serverTimestamp() }, { merge: true });
     setCurrentRoom(name);
-  };
-
-  const leaveRoom = (e, roomName) => {
-    e.stopPropagation();
-    if (confirm(`'${roomName}' 노드에서 나가시겠습니까? (다른 사람의 대화는 유지됩니다)`)) {
-      const updatedRooms = myRooms.filter(r => r !== roomName);
-      setMyRooms(updatedRooms);
-      localStorage.setItem("aether-my-rooms", JSON.stringify(updatedRooms));
-    }
   };
 
   const deleteMsg = async (id) => {
@@ -192,16 +210,13 @@ export default function AetherOS_ChromeGlass_Premium() {
 
   // ✨ 테마별 컬러 및 질감 변수 설정
   const theme = {
-    // 짙은 남색-보라 그라데이션 배경 추가
     bg: isDarkMode ? "bg-gradient-to-br from-[#050A1A] to-[#120520]" : "bg-gradient-to-br from-[#F0F2F5] to-[#E9EBF0]",
     chatBg: isDarkMode ? "bg-[#080808]/60" : "bg-white/70",
     headerBg: isDarkMode ? "bg-black/40 backdrop-blur-xl" : "bg-white/60 backdrop-blur-xl",
     border: isDarkMode ? "border-white/5" : "border-black/5",
     textMain: isDarkMode ? "text-white" : "text-black",
     textSub: isDarkMode ? "text-zinc-500" : "text-zinc-400",
-    // ✨ 글래스 모피즘 카드 질감 강화
     card: isDarkMode ? "bg-white/5 border border-white/10 backdrop-blur-md shadow-inner" : "bg-white/80 border border-black/5 backdrop-blur-md shadow-sm",
-    // ✨ 입력창과 버튼의 글래스 질감 강화
     input: isDarkMode ? "bg-black/50 border border-white/10 shadow-inner" : "bg-white border border-black/10 shadow-sm",
     bubbleOther: isDarkMode ? "bg-zinc-900 border border-zinc-800 text-zinc-300 shadow-sm" : "bg-zinc-100 border border-zinc-200 text-zinc-700 shadow-sm",
     bubbleMe: "bg-gradient-to-br from-blue-600 to-indigo-700 text-white shadow-lg shadow-blue-500/10",
@@ -212,12 +227,11 @@ export default function AetherOS_ChromeGlass_Premium() {
   if (!myName) return (
     <div className={`h-screen ${theme.bg} flex flex-col items-center justify-center p-10 font-sans transition-colors duration-500 relative overflow-hidden`}>
       <FontLink />
-      {/* ✨ 미세 입자 배경 오버레이 */}
       <canvas ref={canvasRef} className="absolute inset-0 z-0 pointer-events-none" />
       
       <div className={`${theme.card} p-16 rounded-[40px] flex flex-col items-center gap-12 z-10 ${theme.chromeBorder}`}>
-          {/* ✨ DOOLY 텍스트: 레퍼런스의 크롬/유리 3D 효과 적용 */}
-          <h1 className="DOOLY_CHROME text-9xl font-black italic tracking-tighter uppercase select-none transition-all" style={{ fontFamily: "'Playfair Display', serif" }}>
+          {/* ✨ DOOLY 텍스트: 레퍼런스의 크롬/유리 3D 효과 적용 및 마우스 모션 적용 */}
+          <h1 ref={chromeTextRef} className="DOOLY_CHROME text-9xl font-black italic tracking-tighter uppercase select-none transition-all" style={{ fontFamily: "'Playfair Display', serif" }} data-text="DOOLY">
             DOOLY
           </h1>
           <form onSubmit={handleProfileSave} className="w-full max-w-sm flex flex-col items-center space-y-8">
@@ -229,7 +243,6 @@ export default function AetherOS_ChromeGlass_Premium() {
             <button type="submit" className="CHROME_BUTTON bg-gradient-to-br from-blue-600 to-blue-700 text-white p-6 rounded-full font-black uppercase tracking-widest text-xl shadow-lg shadow-blue-500/20 active:scale-95 transition-all">Start System</button>
           </form>
       </div>
-        {/* ✨ CSS 크롬/유리 효과 및 모션 구현을 위한 사용자 정의 스타일 주입 */}
     <style jsx global>{`
       @keyframes chromeShift {
         0% { background-position: 0% 50%; }
@@ -246,6 +259,9 @@ export default function AetherOS_ChromeGlass_Premium() {
           0px 4px 8px rgba(0,0,0,0.3);
         position: relative;
         filter: ${isDarkMode ? 'brightness(1.1) contrast(1.1)' : 'none'};
+        /* ✨ 마우스 모션에 반응하는 3D 트랜스폼 */
+        transform-style: preserve-3d;
+        transform: perspective(1000px) rotateX(var(--rotateX, 0deg)) rotateY(var(--rotateY, 0deg));
       }
       .DOOLY_CHROME::before {
         content: attr(data-text);
@@ -267,11 +283,6 @@ export default function AetherOS_ChromeGlass_Premium() {
         opacity: ${isDarkMode ? '0.15' : '0.05'};
         mix-blend-mode: color-dodge;
       }
-      .DOOLY_CHROME {
-        /* ✨ 마우스 모션에 반응하는 3D 트랜스폼 */
-        transform-style: preserve-3d;
-        transform: perspective(1000px) rotateX(var(--rotateX, 0deg)) rotateY(var(--rotateY, 0deg));
-      }
       .CHROME_BUTTON {
         /* ✨ 버튼 글래스 모피즘 및 글로우 효과 */
         backdrop-filter: blur(5px);
@@ -288,11 +299,10 @@ export default function AetherOS_ChromeGlass_Premium() {
 
   if (!currentRoom) return (
     <div className={`h-screen ${theme.bg} flex flex-col items-center justify-center p-5 text-center font-sans transition-colors duration-500 relative overflow-hidden`}>
-      <FontLink />
       <canvas ref={canvasRef} className="absolute inset-0 z-0 pointer-events-none" />
       <div className={`${theme.card} p-12 rounded-[30px] flex flex-col items-center gap-10 z-10 ${theme.chromeBorder}`}>
           <div className="mb-4 flex flex-col items-center">
-            <img src={myProfileImg} className={`w-20 h-20 rounded-full border-2 ${isDarkMode ? 'border-blue-500/30 shadow-[#E0BC6C]/20 shadow-lg' : 'border-blue-500/10'} mb-3 object-cover shadow-2xl ${theme.chromeBorder}`} />
+            <img src={myProfileImg} className={`w-20 h-20 rounded-full border-2 ${isDarkMode ? 'border-blue-500/30' : 'border-blue-500/10'} mb-3 object-cover shadow-2xl ${theme.chromeBorder}`} />
             <p className={`${theme.textMain} font-black text-xl`}>{myName}</p>
             <div className="flex gap-5 mt-3">
                <button onClick={toggleTheme} className="text-blue-500 text-[10px] font-bold uppercase tracking-widest CHROME_MODE_BUTTON">{isDarkMode ? "Day Mode" : "Night Mode"}</button>
@@ -317,16 +327,12 @@ export default function AetherOS_ChromeGlass_Premium() {
                     <span className={`font-black ${theme.textMain} text-md tracking-tight`}>{roomName}</span>
                     <span className="text-[10px] text-blue-500 font-bold uppercase tracking-widest">Connect</span>
                   </button>
-                  <button onClick={(e) => leaveRoom(e, roomName)} className="absolute -right-2 -top-2 w-7 h-7 bg-red-500/20 text-red-500 rounded-full border border-red-500/30 text-[11px] opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center backdrop-blur-sm shadow-sm">✕</button>
                 </div>
               ))}
             </div>
           </div>
       </div>
     <style jsx global>{`
-      .CHROME_MODE_BUTTON {
-        transition: all 0.3s ease;
-      }
       .CHROME_MODE_BUTTON:hover {
         color: white;
         text-shadow: 0 0 10px rgba(59, 130, 246, 0.8);
@@ -337,15 +343,14 @@ export default function AetherOS_ChromeGlass_Premium() {
 
   return (
     <div className={`flex flex-col h-screen ${theme.chatBg} ${theme.textMain} overflow-hidden font-sans transition-colors duration-500`}>
-      <FontLink />
-      <header className={`p-5 border-b ${theme.border} flex justify-between items-center ${theme.headerBg}shrink-0 z-10`}>
+      <header className={`p-5 border-b ${theme.border} flex justify-between items-center ${theme.headerBg} shrink-0 z-10`}>
         <div className="flex items-center gap-4">
           <button onClick={() => setCurrentRoom("")} className={`${theme.textSub} text-[11px] font-bold uppercase hover:text-blue-500 transition-colors`}>◀ Exit</button>
           <div className="flex flex-col text-left gap-0.5">
             <h1 className="text-sm font-black italic text-blue-500 uppercase leading-none">{currentRoom}</h1>
             <div className="flex items-center gap-3">
               <span className={`text-[11px] ${isDarkMode ? 'text-zinc-300' : 'text-zinc-600'} font-bold`}>{myName}</span>
-              <button onClick={() => { setTempName(myName); setTempImg(myProfileImg); setIsEditingProfile(!isEditingProfile); }} className="text-[10px] text-blue-500 font-bold uppercase underline CHROME_MODE_BUTTON">Edit</button>
+              <button onClick={() => { setTempName(myName); setTempImg(myProfileImg); setIsEditingProfile(!isEditingProfile); }} className="text-[10px] text-blue-500 font-bold uppercase underline">Edit</button>
             </div>
           </div>
         </div>
@@ -358,14 +363,14 @@ export default function AetherOS_ChromeGlass_Premium() {
       </header>
 
       {isEditingProfile && (
-        <div className={`p-6 ${theme.headerBg} border-b ${theme.border}backdrop-blur-md animate-in slide-in-from-top duration-300`}>
+        <div className={`p-6 ${theme.headerBg} border-b ${theme.border} backdrop-blur-md animate-in slide-in-from-top duration-300`}>
           <form onSubmit={handleProfileSave} className="flex items-center gap-5 max-w-lg mx-auto">
             <div className="relative w-14 h-14 rounded-full bg-black shrink-0 overflow-hidden cursor-pointer border border-zinc-700 group" onClick={() => profileInputRef.current.click()}>
               <img src={tempImg || myProfileImg} className="w-full h-full object-cover opacity-60 group-hover:opacity-30 transition-all" />
               <span className="absolute inset-0 flex items-center justify-center text-[11px] font-black uppercase text-white drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]">Edit</span>
             </div>
             <input type="file" ref={profileInputRef} onChange={handleProfileImgUpload} accept="image/*" className="hidden" />
-            <input value={tempName} onChange={(e) => setTempName(e.target.value)} className={`flex-1 ${theme.input} p-3 rounded-full text-xs ${theme.textMain} focus:outline-none focus:ring-2 focus:ring-blue-500/50`} placeholder="새 아이디" />
+            <input value={tempName} onChange={(e) => setTempName(e.target.value)} className={`flex-1 ${theme.input} p-3 rounded-full text-xs ${theme.textMain} focus:outline-none Focus:ring-2 focus:ring-blue-500/50`} placeholder="새 아이디" />
             <button type="submit" className="CHROME_BUTTON bg-gradient-to-br from-blue-600 to-blue-700 text-white px-5 py-3 rounded-full text-[11px] font-black uppercase hover:bg-blue-500 transition-all shadow-lg shadow-blue-500/20 active:scale-95">Save</button>
             <button type="button" onClick={() => setIsEditingProfile(false)} className={`${theme.textSub} text-[11px] uppercase font-bold px-2`}>Cancel</button>
           </form>
@@ -386,9 +391,6 @@ export default function AetherOS_ChromeGlass_Premium() {
                 <div className={`group relative p-5 rounded-[20px] text-[14px] ${m.userName === myName ? theme.bubbleMe + ' rounded-tr-none' : `${theme.bubbleOther} rounded-tl-none`}`}>
                   {m.image && <img src={m.image} className="w-full rounded-xl mb-4 shadow-md border border-black/5" />}
                   {m.text && <p className="whitespace-pre-wrap break-words leading-relaxed">{m.text}</p>}
-                  {m.userName === myName && (
-                    <button onClick={() => deleteMsg(m.id)} className={`absolute -left-12 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 ${isDarkMode ? 'text-zinc-800' : 'text-zinc-300'} hover:text-red-500 text-[11px] font-bold transition-all`}>DEL</button>
-                  )}
                 </div>
               </div>
             </div>
@@ -399,7 +401,7 @@ export default function AetherOS_ChromeGlass_Premium() {
 
       <footer className={`p-5 ${theme.headerBg} border-t ${theme.border} shrink-0`}>
         <form onSubmit={sendMessage} className={`flex items-center gap-3 max-w-5xl mx-auto ${theme.input} p-2 rounded-full border focus-within:border-blue-500/50 transition-all`}>
-          <button type="button" onClick={() => fileInputRef.current.click()} className={`${isDarkMode ? 'bg-zinc-800 text-zinc-400' : 'bg-zinc-100 text-zinc-500'} w-11 h-11 flex items-center justify-center rounded-full hover:bg-blue-500 hover:text-white transition-all CHROME_MODE_BUTTON`}>
+          <button type="button" onClick={() => fileInputRef.current.click()} className={`${isDarkMode ? 'bg-zinc-800 text-zinc-400' : 'bg-zinc-100 text-zinc-500'} w-11 h-11 flex items-center justify-center rounded-full hover:bg-blue-500 hover:text-white transition-all`}>
             <span className="text-2xl font-light">+</span>
           </button>
           <input type="file" ref={fileInputRef} onChange={(e) => { const f = e.target.files[0]; if(f) { const r = new FileReader(); r.onloadend = () => sendMessage(null, r.result); r.readAsDataURL(f); } }} accept="image/*" className="hidden" />
@@ -407,14 +409,6 @@ export default function AetherOS_ChromeGlass_Premium() {
           <button type="submit" className="CHROME_BUTTON bg-gradient-to-br from-blue-600 to-blue-700 text-white px-8 py-3.5 rounded-full font-black text-[12px] uppercase tracking-widest shadow-lg shadow-blue-500/20 active:scale-95 transition-all">Send</button>
         </form>
       </footer>
-    <style jsx global>{`
-      .CHROME_BUTTON {
-        transition: all 0.3s ease;
-      }
-      .CHROME_BUTTON:hover {
-        box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
-      }
-    `}</style>
     </div>
   );
 }
