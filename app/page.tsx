@@ -17,7 +17,7 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);
 const storage = getStorage(app);
 
-export default function AetherOS_Perfect_Profile() {
+export default function AetherOS_Bulletproof() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [currentRoom, setCurrentRoom] = useState("");
@@ -51,34 +51,33 @@ export default function AetherOS_Perfect_Profile() {
     return () => unsubscribe();
   }, [myName]);
 
-  // ✨ 프로필 저장 함수 (알림창 추가 및 확실한 업데이트)
+  // ✨ 완벽하게 수정된 무적의 SAVE 로직
   const handleProfileSave = async (e) => {
     if (e) e.preventDefault();
     if (!tempName.trim()) return alert("아이디를 입력해주세요!");
     
+    let finalImg = tempImg || myProfileImg || "https://www.gstatic.com/images/branding/product/2x/avatar_anonymous_dark_64dp.png";
+    
+    // 사진 저장소 오류가 발생해도 이름 변경은 막히지 않도록 Try-Catch 분리!
     try {
-      let finalImg = tempImg || myProfileImg || "https://www.gstatic.com/images/branding/product/2x/avatar_anonymous_dark_64dp.png";
-      
       if (tempImg && tempImg.startsWith('data:image')) {
         const storageRef = ref(storage, `profiles/${tempName}_${Date.now()}`);
         await uploadString(storageRef, tempImg, 'data_url');
         finalImg = await getDownloadURL(storageRef);
       }
-
-      localStorage.setItem("aether-name", tempName);
-      localStorage.setItem("aether-profile", finalImg);
-      
-      setMyName(tempName);
-      setMyProfileImg(finalImg);
-      setIsEditingProfile(false); 
-
-      // ✨ 제대로 실행되었는지 확인하기 위한 성공 알림창!
-      alert(`[AETHER OS] '${tempName}'(으)로 프로필이 변경되었습니다! ✅`);
-
     } catch (err) {
-      console.error(err);
-      alert("🚨 프로필 저장 오류: Firebase Storage 테스트 모드 설정이 안 되어 있을 수 있습니다.");
+      console.error("Storage Error:", err);
+      // 스토리지 에러 시 사진은 임시(Base64)로 강제 적용
+      finalImg = tempImg; 
     }
+
+    // 위에서 무슨 일이 있었든 무조건 내 이름과 사진을 업데이트합니다.
+    localStorage.setItem("aether-name", tempName);
+    localStorage.setItem("aether-profile", finalImg);
+    
+    setMyName(tempName);
+    setMyProfileImg(finalImg);
+    setIsEditingProfile(false); 
   };
 
   const handleProfileImgUpload = (e) => {
@@ -112,6 +111,7 @@ export default function AetherOS_Perfect_Profile() {
 
   useEffect(() => {
     if (!currentRoom || !myName) return;
+
     const hasEnteredKey = `entered_${currentRoom}_${myName}`;
     if (!sessionStorage.getItem(hasEnteredKey)) {
       addDoc(collection(db, "rooms", currentRoom, "messages"), {
@@ -119,10 +119,12 @@ export default function AetherOS_Perfect_Profile() {
       });
       sessionStorage.setItem(hasEnteredKey, 'true');
     }
+
     const q = query(collection(db, "rooms", currentRoom, "messages"), orderBy("createdAt", "asc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setMessages(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
     });
+
     return () => {
       if (currentRoom && myName) {
         addDoc(collection(db, "rooms", currentRoom, "messages"), {
@@ -143,8 +145,10 @@ export default function AetherOS_Perfect_Profile() {
   const sendMessage = async (e, imgData = null) => {
     if (e) e.preventDefault();
     if ((!input.trim() && !imgData) || !myName) return;
+
     const currentInput = input;
     setInput("");
+
     try {
       let uploadedImageUrl = null;
       if (imgData) {
@@ -152,15 +156,22 @@ export default function AetherOS_Perfect_Profile() {
         await uploadString(imageRef, imgData, 'data_url');
         uploadedImageUrl = await getDownloadURL(imageRef);
       }
+      
       await addDoc(collection(db, "rooms", currentRoom, "messages"), {
-        text: currentInput, image: uploadedImageUrl, userName: myName, userPhoto: myProfileImg, type: "chat", createdAt: serverTimestamp()
+        text: currentInput, 
+        image: uploadedImageUrl, 
+        userName: myName, 
+        userPhoto: myProfileImg, 
+        type: "chat", 
+        createdAt: serverTimestamp()
       });
+      
       await setDoc(doc(db, "rooms", currentRoom), { updatedAt: serverTimestamp() }, { merge: true });
       isUserAtBottom.current = true;
       setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
     } catch (error) {
-      console.error(error);
-      alert("🚨 메시지 전송 실패!");
+      console.error("Chat Send Error:", error);
+      alert("🚨 네트워크 에러로 전송되지 않았습니다.");
       setInput(currentInput);
     }
   };
@@ -221,16 +232,25 @@ export default function AetherOS_Perfect_Profile() {
 
       {isEditingProfile && (
         <div className="p-5 bg-zinc-900/95 border-b border-zinc-800 backdrop-blur-md">
-          <form onSubmit={handleProfileSave} className="flex items-center gap-4 max-w-lg mx-auto">
+          {/* ✨ 폼 전송 방식 및 버튼 클릭 이벤트를 가장 안정적인 방식으로 변경 */}
+          <div className="flex items-center gap-4 max-w-lg mx-auto">
             <div className="relative w-12 h-12 rounded-full bg-black shrink-0 overflow-hidden cursor-pointer border border-zinc-700 group" onClick={() => profileInputRef.current.click()}>
               <img src={tempImg || myProfileImg} className="w-full h-full object-cover opacity-60 group-hover:opacity-30 transition-all" />
               <span className="absolute inset-0 flex items-center justify-center text-[10px] font-black uppercase text-white drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]">Edit</span>
             </div>
             <input type="file" ref={profileInputRef} onChange={handleProfileImgUpload} accept="image/*" className="hidden" />
-            <input value={tempName} onChange={(e) => setTempName(e.target.value)} className="flex-1 bg-black border border-zinc-800 p-2 rounded-xl text-xs text-white focus:outline-none focus:border-blue-500/50" placeholder="새 아이디" />
-            <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase hover:bg-blue-500 transition-all active:scale-95 shadow-lg shadow-blue-500/20">Save</button>
+            
+            <input 
+              value={tempName} 
+              onChange={(e) => setTempName(e.target.value)} 
+              onKeyDown={(e) => e.key === 'Enter' && handleProfileSave()}
+              className="flex-1 bg-black border border-zinc-800 p-2 rounded-xl text-xs text-white focus:outline-none focus:border-blue-500/50" 
+              placeholder="새 아이디" 
+            />
+            
+            <button type="button" onClick={handleProfileSave} className="bg-blue-600 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase hover:bg-blue-500 transition-all active:scale-95 shadow-lg shadow-blue-500/20">Save</button>
             <button type="button" onClick={() => setIsEditingProfile(false)} className="text-zinc-500 text-[10px] uppercase font-bold px-2 hover:text-white transition-colors">Cancel</button>
-          </form>
+          </div>
         </div>
       )}
 
