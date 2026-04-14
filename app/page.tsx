@@ -17,22 +17,17 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const genAI = new GoogleGenerativeAI("AIzaSyCSFPBsziw2QX5eAZoUYtMKGeF1XaVfccI");
 
-export default function AetherSmartApp() {
+export default function AetherSmartScrollApp() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [myDisplayName, setMyDisplayName] = useState("");
+  
+  // ✨ 스크롤 제어를 위한 Ref들
+  const scrollRef = useRef(null); 
   const messagesEndRef = useRef(null);
 
-  // 1. 스크롤 함수 (살짝의 시간차를 두어 확실하게 내립니다)
-  const scrollToBottom = () => {
-    setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, 100);
-  };
-
   useEffect(() => {
-    // 2. 닉네임 기억하기 로직
     const savedName = localStorage.getItem("aether-username");
     if (savedName) {
       setMyDisplayName(savedName);
@@ -45,15 +40,30 @@ export default function AetherSmartApp() {
 
     const q = query(collection(db, "messages"), orderBy("createdAt", "asc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      setMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const newMessages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      // 🧐 스크롤 판단 로직
+      const container = scrollRef.current;
+      if (container) {
+        // 바닥에서 얼마나 떨어져 있는지 계산 (약 150px 이내면 바닥으로 간주)
+        const isAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 150;
+        const lastMessage = newMessages[newMessages.length - 1];
+        const sentByMe = lastMessage?.user === myDisplayName;
+
+        setMessages(newMessages);
+
+        // 내가 보냈거나, 이미 바닥을 보고 있었다면 스크롤 다운!
+        if (sentByMe || isAtBottom) {
+          setTimeout(() => {
+            messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+          }, 100);
+        }
+      } else {
+        setMessages(newMessages);
+      }
     });
     return () => unsubscribe();
-  }, []);
-
-  // 메시지가 바뀔 때마다 스크롤 아래로
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+  }, [myDisplayName]);
 
   const sendMessage = async (e) => {
     e.preventDefault();
@@ -65,13 +75,12 @@ export default function AetherSmartApp() {
         createdAt: serverTimestamp()
       });
       setInput("");
-      scrollToBottom(); // 전송 후에도 한 번 더!
     } catch (e) { console.error(e); }
   };
 
   const handleShare = () => {
     navigator.clipboard.writeText(window.location.href);
-    alert("🔗 메신저 주소가 복사되었습니다!");
+    alert("🔗 주소가 복사되었습니다!");
   };
 
   const handleAiSummary = async () => {
@@ -103,32 +112,32 @@ export default function AetherSmartApp() {
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto p-5 space-y-4">
+      {/* ✨ scrollRef를 여기에 연결했습니다 */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-5 space-y-4">
         {messages.map((m) => (
           <div key={m.id} className={`flex flex-col ${m.user === myDisplayName ? 'items-end' : 'items-start'}`}>
             <span className="text-[9px] text-zinc-600 mb-1 font-bold px-1">{m.user}</span>
-            <div className={`px-4 py-2 rounded-2xl max-w-[85%] text-sm shadow-xl ${
+            <div className={`px-4 py-2 rounded-2xl max-w-[85%] text-sm shadow-xl transition-all ${
               m.user === myDisplayName 
               ? 'bg-blue-600 rounded-tr-none' 
-              : 'bg-zinc-900 border border-zinc-800 rounded-tl-none text-zinc-300'
+              : 'bg-zinc-900 border border-zinc-800 rounded-tl-none'
             }`}>
               {m.text}
             </div>
           </div>
         ))}
-        {/* 스크롤 포인트 */}
-        <div ref={messagesEndRef} className="h-4" />
+        <div ref={messagesEndRef} className="h-2" />
       </div>
 
       <form onSubmit={sendMessage} className="p-5 bg-black/50 backdrop-blur-md border-t border-zinc-900/50">
-        <div className="flex gap-2 max-w-4xl mx-auto bg-zinc-900/80 p-1 rounded-2xl border border-zinc-800 focus-within:border-blue-500/50 transition-all">
+        <div className="flex gap-2 max-w-4xl mx-auto bg-zinc-900/80 p-1 rounded-2xl border border-zinc-800 focus-within:border-blue-500/50">
           <input 
             value={input} 
             onChange={(e) => setInput(e.target.value)} 
-            placeholder="팀원과 아이디어를 공유하세요..." 
+            placeholder="메시지를 입력하세요..." 
             className="flex-1 bg-transparent px-4 py-3 text-sm focus:outline-none" 
           />
-          <button type="submit" className="bg-blue-600 text-white px-6 py-3 rounded-xl font-black text-xs hover:bg-blue-500 active:scale-95 transition-all">SEND</button>
+          <button type="submit" className="bg-blue-600 text-white px-6 py-3 rounded-xl font-black text-xs hover:bg-blue-500 transition-all">SEND</button>
         </div>
       </form>
     </div>
