@@ -3,8 +3,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { initializeApp, getApps, getApp } from "firebase/app"; 
 import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, deleteDoc, doc } from "firebase/firestore";
 import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "firebase/auth";
-import { GoogleGenerativeAI } from "@google/generative-ai";
 
+// Firebase 설정
 const firebaseConfig = {
   apiKey: "AIzaSyD9-u-Qz2EWRDAzr7NAuUE6I7sGyCP0Cdc",
   authDomain: "dooly-66736.firebaseapp.com",
@@ -19,20 +19,35 @@ const db = getFirestore(app);
 const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 
-// ✨ 보안 강화: Vercel 금고에서 키를 가져옵니다. (코드에는 노출 안됨)
-const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY || "");
-
-export default function AetherOS_Final_Pro() {
+export default function AetherOS_Lite_Final() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [user, setUser] = useState(null);
   const [currentRoom, setCurrentRoom] = useState("");
-  const [isAiLoading, setIsAiLoading] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState(null); // PWA 설치용
   
   const scrollRef = useRef(null); 
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null); 
   const isUserAtBottom = useRef(true); 
+
+  // 홈 화면 설치(PWA) 이벤트 감지
+  useEffect(() => {
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    });
+  }, []);
+
+  const handleInstallApp = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') setDeferredPrompt(null);
+    } else {
+      alert("브라우저 메뉴에서 '홈 화면에 추가'를 눌러주세요!");
+    }
+  };
 
   const handleScroll = () => {
     const container = scrollRef.current;
@@ -94,23 +109,7 @@ export default function AetherOS_Final_Pro() {
   };
 
   const deleteMsg = async (id) => {
-    if (confirm("메시지를 삭제할까요?")) await deleteDoc(doc(db, "rooms", currentRoom, "messages", id));
-  };
-
-  const handleAiSummary = async () => {
-    const chatMsgs = messages.filter(m => m.type === "chat");
-    if (chatMsgs.length === 0) return alert("AI가 분석할 대화가 없습니다.");
-
-    setIsAiLoading(true);
-    try {
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-      const context = chatMsgs.slice(-15).map(m => `${m.userName}: ${m.text}`).join("\n");
-      const result = await model.generateContent(`수석 디자이너의 관점에서 이 디자인 프로젝트 대화를 요약하고 방향을 제안해줘: \n${context}`);
-      alert("🤖 AI BRIEFING:\n\n" + (await result.response).text());
-    } catch (e) { 
-      alert("🚨 AI 연결 실패! Vercel에 API 키가 제대로 등록되었는지 확인해 주세요."); 
-    }
-    setIsAiLoading(false);
+    if (confirm("삭제할까요?")) await deleteDoc(doc(db, "rooms", currentRoom, "messages", id));
   };
 
   const handlePopupMode = () => {
@@ -120,7 +119,7 @@ export default function AetherOS_Final_Pro() {
   if (!user) return (
     <div className="h-screen bg-[#050505] flex flex-col items-center justify-center p-10 text-center">
       <h1 className="text-5xl font-black italic text-blue-500 mb-2 tracking-tighter">AETHER LAB.</h1>
-      <p className="text-zinc-600 text-[10px] mb-12 uppercase tracking-[0.4em] font-bold">Design Intelligence Network</p>
+      <p className="text-zinc-600 text-[10px] mb-12 uppercase tracking-[0.4em] font-bold">Network OS</p>
       <button onClick={handleLogin} className="bg-white text-black px-10 py-4 rounded-2xl font-bold flex items-center gap-3 shadow-2xl shadow-blue-500/10">
         <img src="https://www.gstatic.com/firebase/anonymous/google.png" className="w-5" alt="google" />
         Google 계정으로 시작
@@ -131,12 +130,17 @@ export default function AetherOS_Final_Pro() {
   if (!currentRoom) return (
     <div className="h-screen bg-[#050505] flex flex-col items-center justify-center p-10">
       <div className="w-full max-w-sm space-y-6">
-        <h2 className="text-xl font-bold text-center text-zinc-400 tracking-widest uppercase">Project Node</h2>
+        <h2 className="text-xl font-bold text-center text-zinc-400 tracking-widest uppercase">Select Node</h2>
         <input 
           onKeyDown={(e) => e.key === 'Enter' && setCurrentRoom(e.currentTarget.value)}
-          placeholder="방 이름을 입력하고 Enter..." 
+          placeholder="방 이름을 입력하세요..." 
           className="w-full bg-zinc-900 border border-zinc-800 p-5 rounded-3xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-center"
         />
+        {deferredPrompt && (
+          <button onClick={handleInstallApp} className="w-full bg-blue-600/10 text-blue-400 p-4 rounded-2xl border border-blue-500/20 text-xs font-bold uppercase">
+            AETHER OS 앱 설치하기
+          </button>
+        )}
       </div>
     </div>
   );
@@ -152,7 +156,6 @@ export default function AetherOS_Final_Pro() {
           </div>
         </div>
         <div className="flex gap-1.5">
-          <button onClick={handleAiSummary} className="bg-blue-600 text-white px-3 py-2 rounded-xl text-[10px] font-black">AI</button>
           <button onClick={handlePopupMode} className="bg-zinc-900 text-zinc-400 px-3 py-2 rounded-xl text-[10px] font-black">POPUP</button>
           <button onClick={handleLogout} className="bg-zinc-900 text-zinc-700 px-3 py-2 rounded-xl text-[10px] font-black">OFF</button>
         </div>
@@ -182,7 +185,7 @@ export default function AetherOS_Final_Pro() {
       </div>
 
       <form onSubmit={sendMessage} className="p-4 bg-black/60 border-t border-zinc-900/30 shrink-0">
-        <div className="flex items-center gap-2 max-w-5xl mx-auto bg-zinc-900/90 p-1.5 rounded-2xl border border-zinc-800">
+        <div className="flex items-center gap-2 max-w-5xl mx-auto bg-zinc-900/90 p-1.5 rounded-2xl border border-zinc-800 focus-within:border-blue-500/50">
           <button type="button" onClick={() => fileInputRef.current.click()} className="w-10 h-10 flex items-center justify-center bg-zinc-800 text-zinc-400 rounded-xl">+</button>
           <input type="file" ref={fileInputRef} onChange={(e) => {
             const f = e.target.files[0];
@@ -195,4 +198,3 @@ export default function AetherOS_Final_Pro() {
     </div>
   );
 }
-
