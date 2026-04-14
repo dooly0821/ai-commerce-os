@@ -31,10 +31,9 @@ export default function AetherOS_Advanced() {
   const scrollRef = useRef(null); 
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null); 
-  const profileInputRef = useRef(null);
+  const profileInputRef = useRef(null); // 프로필 사진 업로드용 Ref
   const isUserAtBottom = useRef(true); 
 
-  // 초기 프로필 로드
   useEffect(() => {
     const savedName = localStorage.getItem("aether-name");
     const savedImg = localStorage.getItem("aether-profile");
@@ -42,7 +41,6 @@ export default function AetherOS_Advanced() {
     if (savedImg) { setMyProfileImg(savedImg); setTempImg(savedImg); }
   }, []);
 
-  // 방 목록 실시간 감지
   useEffect(() => {
     if (!myName) return;
     const q = query(collection(db, "rooms"), orderBy("updatedAt", "desc"));
@@ -52,11 +50,9 @@ export default function AetherOS_Advanced() {
     return () => unsubscribe();
   }, [myName]);
 
-  // 방 입장 및 퇴장 시스템 메시지 관리
   useEffect(() => {
     if (!currentRoom || !myName) return;
 
-    // 입장 알림
     const hasEnteredKey = `entered_${currentRoom}_${myName}`;
     if (!sessionStorage.getItem(hasEnteredKey)) {
       addDoc(collection(db, "rooms", currentRoom, "messages"), {
@@ -70,7 +66,6 @@ export default function AetherOS_Advanced() {
       setMessages(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
     });
 
-    // ✨ 퇴장 시 알림창 기능 (Cleanup 함수)
     return () => {
       if (currentRoom && myName) {
         addDoc(collection(db, "rooms", currentRoom, "messages"), {
@@ -109,7 +104,6 @@ export default function AetherOS_Advanced() {
     setCurrentRoom(name);
   };
 
-  // ✨ 누구나 방 목록을 청소할 수 있는 기능
   const deleteRoomFromList = async (e, roomId) => {
     e.stopPropagation();
     if (confirm(`'${roomId}' 방을 목록에서 지울까요? (이름을 검색하면 다시 입장 가능)`)) {
@@ -136,6 +130,7 @@ export default function AetherOS_Advanced() {
         <div className="w-24 h-24 rounded-full bg-zinc-900 border-2 border-dashed border-zinc-700 overflow-hidden flex items-center justify-center cursor-pointer" onClick={() => profileInputRef.current.click()}>
           {tempImg ? <img src={tempImg} className="w-full h-full object-cover" /> : <span className="text-zinc-600 text-[10px] font-bold">PHOTO +</span>}
         </div>
+        {/* 첫 화면용 숨겨진 파일 입력창 */}
         <input type="file" ref={profileInputRef} onChange={handleProfileImgUpload} accept="image/*" className="hidden" />
         <input value={tempName} onChange={(e) => setTempName(e.target.value)} placeholder="아이디 입력" className="w-full bg-zinc-900 border border-zinc-800 p-5 rounded-3xl text-white text-center focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
         <button type="submit" className="w-full bg-blue-600 text-white p-5 rounded-3xl font-black uppercase tracking-widest">START</button>
@@ -148,7 +143,7 @@ export default function AetherOS_Advanced() {
       <div className="mb-10 flex flex-col items-center">
         <img src={myProfileImg} className="w-16 h-16 rounded-full border-2 border-blue-500/30 mb-3 object-cover shadow-2xl" />
         <p className="text-white font-black text-lg">{myName}</p>
-        <button onClick={() => { localStorage.clear(); location.reload(); }} className="text-zinc-700 text-[9px] font-bold uppercase mt-2 tracking-widest">Logout</button>
+        <button onClick={() => { localStorage.clear(); location.reload(); }} className="text-zinc-700 text-[9px] font-bold uppercase mt-2 tracking-widest hover:text-red-500 transition-colors">Logout</button>
       </div>
       <div className="w-full max-w-sm flex flex-col h-[60vh]">
         <input onKeyDown={(e) => e.key === 'Enter' && joinRoom(e.currentTarget.value)} placeholder="새로운 노드 생성 혹은 검색..." className="w-full bg-zinc-900/80 border border-zinc-800 p-5 rounded-3xl text-white text-center mb-8 focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
@@ -172,7 +167,7 @@ export default function AetherOS_Advanced() {
     <div className="flex flex-col h-screen bg-[#080808] text-white overflow-hidden">
       <header className="p-4 border-b border-zinc-900/50 flex justify-between items-center bg-black/60 backdrop-blur-xl shrink-0">
         <div className="flex items-center gap-3">
-          <button onClick={() => setCurrentRoom("")} className="text-zinc-600 text-[10px] font-bold uppercase">◀ EXIT</button>
+          <button onClick={() => setCurrentRoom("")} className="text-zinc-600 text-[10px] font-bold uppercase hover:text-white transition-colors">◀ EXIT</button>
           <div className="flex flex-col">
             <h1 className="text-xs font-black italic text-blue-500 uppercase leading-none">{currentRoom}</h1>
             <button onClick={() => setIsEditingProfile(!isEditingProfile)} className="text-[8px] text-zinc-500 font-bold uppercase tracking-tighter mt-1 text-left hover:text-blue-400 underline transition-colors">Edit Profile</button>
@@ -185,13 +180,19 @@ export default function AetherOS_Advanced() {
       {isEditingProfile && (
         <div className="p-5 bg-zinc-900/90 border-b border-zinc-800 backdrop-blur-md animate-in slide-in-from-top duration-300">
           <form onSubmit={handleProfileSetup} className="flex items-center gap-4 max-w-lg mx-auto">
-            <div className="relative w-12 h-12 rounded-full bg-black shrink-0 overflow-hidden cursor-pointer border border-zinc-700" onClick={() => profileInputRef.current.click()}>
-              <img src={tempImg} className="w-full h-full object-cover opacity-50" />
-              <span className="absolute inset-0 flex items-center justify-center text-[8px] font-bold uppercase">Edit</span>
+            {/* ✨ 버그 해결: 클릭하면 아래 숨겨진 input이 작동하도록 연결 */}
+            <div className="relative w-12 h-12 rounded-full bg-black shrink-0 overflow-hidden cursor-pointer border border-zinc-700 group" onClick={() => profileInputRef.current.click()}>
+              <img src={tempImg || myProfileImg} className="w-full h-full object-cover opacity-60 group-hover:opacity-30 transition-all" />
+              {/* ✨ 디자인 개선: 흰색 사진 위에서도 잘 보이도록 그림자 추가 */}
+              <span className="absolute inset-0 flex items-center justify-center text-[10px] font-black uppercase text-white drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]">Edit</span>
             </div>
-            <input value={tempName} onChange={(e) => setTempName(e.target.value)} className="flex-1 bg-black border border-zinc-800 p-2 rounded-xl text-xs" placeholder="새 아이디" />
-            <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded-xl text-[10px] font-bold uppercase">Save</button>
-            <button type="button" onClick={() => setIsEditingProfile(false)} className="text-zinc-500 text-[10px] uppercase font-bold px-2">Cancel</button>
+            
+            {/* ✨ 여기가 빠져있었습니다! 파일 선택 창을 띄워주는 숨겨진 부품 */}
+            <input type="file" ref={profileInputRef} onChange={handleProfileImgUpload} accept="image/*" className="hidden" />
+            
+            <input value={tempName} onChange={(e) => setTempName(e.target.value)} className="flex-1 bg-black border border-zinc-800 p-2 rounded-xl text-xs focus:outline-none focus:border-blue-500/50" placeholder="새 아이디" />
+            <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded-xl text-[10px] font-bold uppercase hover:bg-blue-500 transition-colors">Save</button>
+            <button type="button" onClick={() => setIsEditingProfile(false)} className="text-zinc-500 text-[10px] uppercase font-bold px-2 hover:text-white transition-colors">Cancel</button>
           </form>
         </div>
       )}
@@ -199,15 +200,15 @@ export default function AetherOS_Advanced() {
       <div ref={scrollRef} onScroll={(e) => { isUserAtBottom.current = e.currentTarget.scrollHeight - e.currentTarget.scrollTop <= e.currentTarget.clientHeight + 150; }} className="flex-1 overflow-y-auto p-5 space-y-6 scrollbar-hide">
         {messages.map((m) => (
           m.type === "system" ? (
-            <div key={m.id} className="flex justify-center"><span className="text-zinc-800 text-[9px] font-black uppercase tracking-widest bg-zinc-900/30 px-3 py-1 rounded-full">{m.text}</span></div>
+            <div key={m.id} className="flex justify-center"><span className="text-zinc-500 text-[9px] font-bold uppercase tracking-widest bg-zinc-900/50 px-3 py-1 rounded-full border border-zinc-800/50">{m.text}</span></div>
           ) : (
             <div key={m.id} className={`flex gap-3 ${m.userName === myName ? 'flex-row-reverse' : ''}`}>
               <img src={m.userPhoto} className="w-7 h-7 rounded-full mt-1 shrink-0 border border-zinc-800 object-cover" />
               <div className={`flex flex-col ${m.userName === myName ? 'items-end' : 'items-start'} max-w-[80%]`}>
                 <span className="text-[9px] text-zinc-600 font-black mb-1 px-1 uppercase tracking-tighter">{m.userName}</span>
-                <div className={`group relative p-4 rounded-2xl text-[13px] ${m.userName === myName ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-zinc-900 border border-zinc-800 rounded-tl-none text-zinc-300'}`}>
-                  {m.image && <img src={m.image} className="w-full rounded-xl mb-3 shadow-md" />}
-                  {m.text && <p className="whitespace-pre-wrap break-words">{m.text}</p>}
+                <div className={`group relative p-4 rounded-2xl text-[13px] ${m.userName === myName ? 'bg-blue-600 text-white rounded-tr-none shadow-lg shadow-blue-900/20' : 'bg-zinc-900 border border-zinc-800 rounded-tl-none text-zinc-300'}`}>
+                  {m.image && <img src={m.image} className="w-full rounded-xl mb-3 shadow-md border border-black/20" />}
+                  {m.text && <p className="whitespace-pre-wrap break-words leading-relaxed">{m.text}</p>}
                 </div>
               </div>
             </div>
@@ -217,8 +218,8 @@ export default function AetherOS_Advanced() {
       </div>
 
       <form onSubmit={sendMessage} className="p-4 bg-black/60 border-t border-zinc-900/30 shrink-0">
-        <div className="flex items-center gap-2 max-w-5xl mx-auto bg-zinc-900/90 p-1.5 rounded-2xl border border-zinc-800 focus-within:border-blue-500/50">
-          <button type="button" onClick={() => fileInputRef.current.click()} className="w-10 h-10 flex items-center justify-center bg-zinc-800 text-zinc-500 rounded-xl hover:bg-zinc-700 transition-all shrink-0">
+        <div className="flex items-center gap-2 max-w-5xl mx-auto bg-zinc-900/90 p-1.5 rounded-2xl border border-zinc-800 focus-within:border-blue-500/50 transition-all">
+          <button type="button" onClick={() => fileInputRef.current.click()} className="w-10 h-10 flex items-center justify-center bg-zinc-800 text-zinc-400 rounded-xl hover:bg-zinc-700 transition-all shrink-0">
             <span className="text-xl font-light">+</span>
           </button>
           <input type="file" ref={fileInputRef} onChange={(e) => { const f = e.target.files[0]; if(f) { const r = new FileReader(); r.onloadend = () => sendMessage(null, r.result); r.readAsDataURL(f); } }} accept="image/*" className="hidden" />
