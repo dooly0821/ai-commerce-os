@@ -20,25 +20,22 @@ const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 const genAI = new GoogleGenerativeAI("AIzaSyCSFPBsziw2QX5eAZoUYtMKGeF1XaVfccI");
 
-export default function AetherOSV3() {
+export default function AetherOS_Ultimate() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [user, setUser] = useState(null);
   const [currentRoom, setCurrentRoom] = useState("");
   const [isAiLoading, setIsAiLoading] = useState(false);
+  const [isPopup, setIsPopup] = useState(false); // ✨ 팝업 상태 추가!
   
   const scrollRef = useRef(null);
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
-  
-  // ✨ 스마트 스크롤: 유저가 맨 아래를 보고 있는지 기억하는 변수
   const isUserAtBottom = useRef(true);
 
-  // ✨ 스크롤 감지 함수
   const handleScroll = () => {
     const container = scrollRef.current;
     if (container) {
-      // 바닥에서 150px 이내로 있으면 '바닥에 있다'고 판단
       isUserAtBottom.current = container.scrollHeight - container.scrollTop <= container.clientHeight + 150;
     }
   };
@@ -48,11 +45,9 @@ export default function AetherOSV3() {
     return () => unsubscribe();
   }, []);
 
-  // 채팅방 입장 및 메시지 로드
   useEffect(() => {
     if (!currentRoom || !user) return;
 
-    // 입장 알림 (한 번만)
     const sendEnterMsg = async () => {
       await addDoc(collection(db, "rooms", currentRoom, "messages"), {
         type: "system",
@@ -70,16 +65,14 @@ export default function AetherOSV3() {
     return () => unsubscribe();
   }, [currentRoom, user]);
 
-  // ✨ 메시지가 업데이트될 때마다 스크롤 위치 결정
   useEffect(() => {
     if (isUserAtBottom.current) {
-      // 유저가 바닥을 보고 있었다면 자동으로 내려줌
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
 
   const handleLogin = () => signInWithPopup(auth, provider);
-  const handleLogout = () => { signOut(auth); setCurrentRoom(""); };
+  const handleLogout = () => { signOut(auth); setCurrentRoom(""); setIsPopup(false); };
 
   const sendMessage = async (e, img = null) => {
     if (e) e.preventDefault();
@@ -95,8 +88,6 @@ export default function AetherOSV3() {
       createdAt: serverTimestamp()
     });
     setInput("");
-    
-    // 내가 보냈을 때는 무조건 화면을 바닥으로 고정
     isUserAtBottom.current = true;
     setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
   };
@@ -110,7 +101,7 @@ export default function AetherOSV3() {
     try {
       const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
       const context = messages.filter(m => m.type === "chat").slice(-20).map(m => `${m.userName}: ${m.text}`).join("\n");
-      const result = await model.generateContent(`이 디자인 프로젝트 대화를 요약해줘: \n${context}`);
+      const result = await model.generateContent(`수석 디자이너의 관점에서 이 프로젝트 대화를 3줄로 요약해줘: \n${context}`);
       alert("🤖 AI BRIEFING:\n\n" + (await result.response).text());
     } catch (e) { alert("AI 연결 중..."); }
     setIsAiLoading(false);
@@ -118,8 +109,10 @@ export default function AetherOSV3() {
 
   if (!user) return (
     <div className="h-screen bg-[#050505] flex flex-col items-center justify-center p-10">
-      <h1 className="text-4xl font-black italic text-blue-500 mb-8">AETHER OS.</h1>
-      <button onClick={handleLogin} className="bg-white text-black px-8 py-4 rounded-2xl font-bold flex items-center gap-3">
+      <h1 className="text-5xl font-black italic text-blue-500 mb-2 tracking-tighter">AETHER LAB.</h1>
+      <p className="text-zinc-600 text-[10px] mb-12 uppercase tracking-[0.4em] font-bold">Design Intelligence Network</p>
+      <button onClick={handleLogin} className="bg-white text-black px-8 py-4 rounded-2xl font-bold flex items-center gap-3 hover:scale-105 transition-all">
+        <img src="https://www.gstatic.com/firebase/anonymous/google.png" className="w-5" alt="google" />
         Google 계정으로 시작하기
       </button>
     </div>
@@ -128,11 +121,11 @@ export default function AetherOSV3() {
   if (!currentRoom) return (
     <div className="h-screen bg-[#050505] flex flex-col items-center justify-center p-10">
       <div className="w-full max-w-sm space-y-4">
-        <h2 className="text-xl font-bold text-center text-zinc-400 mb-6">PROJECT ROOM</h2>
+        <h2 className="text-xl font-bold text-center text-zinc-400 mb-6 tracking-widest">PROJECT ROOM</h2>
         <input 
           onKeyDown={(e) => e.key === 'Enter' && setCurrentRoom(e.currentTarget.value)}
           placeholder="방 이름을 입력하세요 (예: 디자인-A)" 
-          className="w-full bg-zinc-900 border border-zinc-800 p-4 rounded-2xl text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full bg-zinc-900 border border-zinc-800 p-4 rounded-2xl text-white focus:outline-none focus:ring-1 focus:ring-blue-500 text-center"
         />
         <p className="text-[10px] text-zinc-600 text-center uppercase tracking-widest">Enter를 누르면 방이 생성되거나 입장합니다</p>
       </div>
@@ -140,40 +133,53 @@ export default function AetherOSV3() {
   );
 
   return (
-    <div className="flex flex-col h-screen bg-[#080808] text-white overflow-hidden">
-      <header className="p-4 border-b border-zinc-900 flex justify-between items-center bg-black/60 backdrop-blur-xl">
+    <div className={`flex flex-col bg-[#080808] text-white transition-all duration-500 ${
+      isPopup 
+      ? 'fixed bottom-5 right-5 w-[360px] h-[600px] rounded-[2.5rem] border border-blue-500/30 z-[9999] shadow-2xl overflow-hidden' 
+      : 'h-screen w-full'
+    }`}>
+      {/* HEADER */}
+      <header className="p-4 border-b border-zinc-900/50 flex justify-between items-center bg-black/40 backdrop-blur-xl shrink-0">
         <div className="flex items-center gap-3">
           <button onClick={() => setCurrentRoom("")} className="text-zinc-500 hover:text-white text-xs">◀ 뒤로</button>
-          <div>
-            <h1 className="text-xs font-black italic text-blue-500 uppercase">{currentRoom}</h1>
-            <p className="text-[9px] text-zinc-600">{user.displayName}</p>
+          <div className="overflow-hidden">
+            <h1 className={`font-black italic text-blue-500 uppercase truncate max-w-[100px] ${isPopup ? 'text-[10px]' : 'text-xs'}`}>{currentRoom}</h1>
+            <p className="text-[9px] text-zinc-600 truncate">{user.displayName}</p>
           </div>
         </div>
-        <div className="flex gap-2">
-          <button onClick={handleAiSummary} className="bg-blue-600/10 text-blue-400 px-3 py-1.5 rounded-lg border border-blue-500/20 text-[10px] font-bold">AI 요약</button>
-          <button onClick={handleLogout} className="bg-zinc-900 text-zinc-600 px-3 py-1.5 rounded-lg border border-zinc-800 text-[10px]">로그아웃</button>
+        <div className="flex gap-1.5">
+          <button onClick={handleAiSummary} className="bg-blue-600/10 text-blue-400 p-2 rounded-xl border border-blue-500/10 hover:bg-blue-600 hover:text-white transition-all">
+            <span className="text-[10px] font-bold px-1">AI</span>
+          </button>
+          {/* ✨ 팝업 모드 전환 버튼 */}
+          <button onClick={() => setIsPopup(!isPopup)} className="bg-zinc-900 text-zinc-400 p-2 rounded-xl border border-zinc-800 hover:bg-zinc-800 transition-all">
+            <span className="text-[10px] font-bold px-1">{isPopup ? "FULL" : "POPUP"}</span>
+          </button>
+          <button onClick={handleLogout} className="bg-zinc-900 text-zinc-600 p-2 rounded-xl border border-zinc-800 hover:text-red-500 transition-all">
+            <span className="text-[10px] font-bold px-1">OFF</span>
+          </button>
         </div>
       </header>
 
-      {/* ✨ onScroll 이벤트가 추가된 대화창 영역 */}
-      <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto p-5 space-y-6">
+      {/* CHAT AREA */}
+      <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto p-4 space-y-5 scrollbar-hide">
         {messages.map((m) => (
           m.type === "system" ? (
             <div key={m.id} className="flex justify-center">
-              <span className="bg-zinc-900/50 text-zinc-600 text-[10px] px-3 py-1 rounded-full border border-zinc-800/50">{m.text}</span>
+              <span className="bg-zinc-900/50 text-zinc-500 text-[9px] px-3 py-1 rounded-full border border-zinc-800/50">{m.text}</span>
             </div>
           ) : (
-            <div key={m.id} className={`flex gap-3 ${m.uid === user.uid ? 'flex-row-reverse' : ''}`}>
-              <img src={m.userPhoto} className="w-7 h-7 rounded-full mt-1 opacity-80" />
-              <div className={`flex flex-col ${m.uid === user.uid ? 'items-end' : 'items-start'}`}>
-                <span className="text-[9px] text-zinc-600 font-bold mb-1 uppercase tracking-wider">{m.userName}</span>
-                <div className={`group relative p-3.5 rounded-2xl text-[13px] ${
-                  m.uid === user.uid ? 'bg-blue-600 rounded-tr-none' : 'bg-zinc-900 border border-zinc-800 rounded-tl-none'
+            <div key={m.id} className={`flex gap-2.5 ${m.uid === user.uid ? 'flex-row-reverse' : ''}`}>
+              <img src={m.userPhoto} className="w-6 h-6 rounded-full mt-1 opacity-80 shrink-0" alt="profile" />
+              <div className={`flex flex-col ${m.uid === user.uid ? 'items-end' : 'items-start'} max-w-[80%]`}>
+                <span className="text-[8px] text-zinc-600 font-bold mb-1 uppercase tracking-wider px-1">{m.userName}</span>
+                <div className={`group relative p-3 rounded-2xl text-[13px] leading-relaxed ${
+                  m.uid === user.uid ? 'bg-blue-600 rounded-tr-none shadow-lg shadow-blue-900/20' : 'bg-zinc-900 border border-zinc-800 rounded-tl-none'
                 }`}>
-                  {m.image && <img src={m.image} className="max-w-[220px] rounded-xl mb-2" />}
-                  {m.text && <p className="whitespace-pre-wrap">{m.text}</p>}
+                  {m.image && <img src={m.image} className="w-full rounded-xl mb-2" alt="upload" />}
+                  {m.text && <p className="whitespace-pre-wrap break-words">{m.text}</p>}
                   {m.uid === user.uid && (
-                    <button onClick={() => deleteMsg(m.id)} className="absolute -left-10 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 text-zinc-700 hover:text-red-500 text-[10px]">삭제</button>
+                    <button onClick={() => deleteMsg(m.id)} className="absolute -left-9 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 text-zinc-700 hover:text-red-500 text-[9px] transition-all bg-black/50 px-2 py-1 rounded">DEL</button>
                   )}
                 </div>
               </div>
@@ -183,15 +189,18 @@ export default function AetherOSV3() {
         <div ref={messagesEndRef} />
       </div>
 
-      <form onSubmit={sendMessage} className="p-4 bg-black/60 border-t border-zinc-900/30">
-        <div className="flex items-center gap-2 max-w-5xl mx-auto bg-zinc-900/90 p-1.5 rounded-2xl border border-zinc-800">
-          <button type="button" onClick={() => fileInputRef.current.click()} className="w-10 h-10 flex items-center justify-center bg-zinc-800 text-zinc-400 rounded-xl">+</button>
+      {/* INPUT AREA */}
+      <form onSubmit={sendMessage} className="p-3 bg-black/40 border-t border-zinc-900/30 backdrop-blur-xl shrink-0">
+        <div className="flex items-center gap-2 max-w-5xl mx-auto bg-zinc-900/80 p-1.5 rounded-2xl border border-zinc-800 focus-within:border-blue-500/50 transition-all">
+          <button type="button" onClick={() => fileInputRef.current.click()} className="w-9 h-9 flex items-center justify-center bg-zinc-800 text-zinc-400 rounded-xl hover:bg-zinc-700 shrink-0">
+            <span className="text-lg font-light">+</span>
+          </button>
           <input type="file" ref={fileInputRef} onChange={(e) => {
             const f = e.target.files[0];
             if(f) { const r = new FileReader(); r.onloadend = () => sendMessage(null, r.result); r.readAsDataURL(f); }
           }} accept="image/*" className="hidden" />
-          <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="메시지 입력..." className="flex-1 bg-transparent px-2 py-2 text-sm focus:outline-none" />
-          <button type="submit" className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-black text-xs">SEND</button>
+          <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="메시지..." className="flex-1 bg-transparent px-2 py-1.5 text-sm focus:outline-none min-w-0" />
+          <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-500 active:scale-95 shrink-0 shadow-lg shadow-blue-500/20">SEND</button>
         </div>
       </form>
     </div>
