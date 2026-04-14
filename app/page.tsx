@@ -1,7 +1,8 @@
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from "firebase/firestore";
+import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, deleteDoc, doc } from "firebase/firestore";
+import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "firebase/auth";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const firebaseConfig = {
@@ -15,156 +16,131 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const auth = getAuth(app);
+const provider = new GoogleAuthProvider();
 const genAI = new GoogleGenerativeAI("AIzaSyCSFPBsziw2QX5eAZoUYtMKGeF1XaVfccI");
 
-export default function AetherProApp() {
+export default function AetherFinalOS() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
+  const [user, setUser] = useState(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
-  const [myDisplayName, setMyDisplayName] = useState("");
-  const [isPopup, setIsPopup] = useState(false); // 팝업 모드 상태
-  
   const scrollRef = useRef(null);
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
 
+  // 1. 로그인 상태 감지
   useEffect(() => {
-    const savedName = localStorage.getItem("aether-username");
-    if (savedName) {
-      setMyDisplayName(savedName);
-    } else {
-      const name = prompt("사용하실 이름을 입력해주세요!");
-      const finalName = name || "익명";
-      setMyDisplayName(finalName);
-      localStorage.setItem("aether-username", finalName);
-    }
-
-    const q = query(collection(db, "messages"), orderBy("createdAt", "asc"));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const newMessages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      const container = scrollRef.current;
-      if (container) {
-        const isAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 150;
-        const lastMessage = newMessages[newMessages.length - 1];
-        setMessages(newMessages);
-        if (lastMessage?.user === myDisplayName || isAtBottom) {
-          setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
-        }
-      } else {
-        setMessages(newMessages);
-      }
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
     });
     return () => unsubscribe();
-  }, [myDisplayName]);
+  }, []);
 
-  // 메시지 전송 로직 (텍스트 + 이미지)
-  const sendMessage = async (e, imageUrl = null) => {
+  // 2. 메시지 실시간 로드
+  useEffect(() => {
+    const q = query(collection(db, "messages"), orderBy("createdAt", "asc"));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const newMessages = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      setMessages(newMessages);
+      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleLogin = () => signInWithPopup(auth, provider);
+  const handleLogout = () => signOut(auth);
+
+  const sendMessage = async (e, img = null) => {
     if (e) e.preventDefault();
-    if (!input.trim() && !imageUrl) return;
-
-    try {
-      await addDoc(collection(db, "messages"), {
-        text: input,
-        image: imageUrl,
-        user: myDisplayName,
-        createdAt: serverTimestamp()
-      });
-      setInput("");
-    } catch (err) { console.error(err); }
+    if ((!input.trim() && !img) || !user) return;
+    await addDoc(collection(db, "messages"), {
+      text: input,
+      image: img,
+      uid: user.uid,
+      userName: user.displayName,
+      userPhoto: user.photoURL,
+      createdAt: serverTimestamp()
+    });
+    setInput("");
   };
 
-  // 이미지 파일 선택 핸들러
-  const handleImageUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => sendMessage(null, reader.result);
-      reader.readAsDataURL(file);
+  const deleteMsg = async (id) => {
+    if (confirm("이 메시지를 삭제할까요?")) {
+      await deleteDoc(doc(db, "messages", id));
     }
   };
 
   const handleAiSummary = async () => {
-    if (messages.length === 0) return alert("데이터가 없습니다.");
     setIsAiLoading(true);
     try {
       const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-      const conversation = messages.slice(-20).map(m => `${m.user}: ${m.text}`).join("\n");
-      const prompt = `너는 수석 디자이너의 AI 비서야. 다음 대화를 분석해서 핵심 의사결정 사항과 디자인 피드백을 3줄로 요약해줘: \n\n ${conversation}`;
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      alert("🤖 AI DESIGN BRIEFING:\n\n" + response.text());
-    } catch (err) { alert("AI 연결 중..."); }
+      const context = messages.slice(-15).map(m => `${m.userName}: ${m.text}`).join("\n");
+      const result = await model.generateContent(`수석 디자이너를 위한 대화 요약: \n${context}`);
+      alert("🤖 AI 요약:\n" + (await result.response).text());
+    } catch (e) { alert("AI 요약 중..."); }
     setIsAiLoading(false);
   };
 
+  if (!user) {
+    return (
+      <div className="h-screen bg-[#050505] flex flex-col items-center justify-center p-10 text-center">
+        <h1 className="text-4xl font-black italic text-blue-500 mb-2">AETHER LAB.</h1>
+        <p className="text-zinc-500 text-sm mb-8 uppercase tracking-[0.3em]">Design Intelligence Network</p>
+        <button onClick={handleLogin} className="bg-white text-black px-8 py-4 rounded-2xl font-bold flex items-center gap-3 hover:scale-105 transition-all shadow-2xl shadow-blue-500/10">
+          <img src="https://www.gstatic.com/firebase/anonymous/google.png" className="w-5" />
+          Google 계정으로 시작하기
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div className={`flex flex-col bg-[#050505] text-white font-sans transition-all duration-500 shadow-2xl ${
-      isPopup 
-      ? 'fixed bottom-5 right-5 w-[350px] h-[500px] rounded-3xl border border-blue-500/30 z-[9999]' 
-      : 'h-screen w-full'
-    }`}>
-      {/* HEADER */}
-      <header className="p-4 border-b border-zinc-900 flex justify-between items-center bg-black/40 backdrop-blur-xl shrink-0">
-        <div>
-          <h1 className={`font-black italic tracking-tighter text-blue-500 ${isPopup ? 'text-sm' : 'text-xl'}`}>AETHER PRO.</h1>
-          <p className="text-[8px] text-zinc-500 font-bold uppercase tracking-widest">{myDisplayName}</p>
+    <div className="flex flex-col h-screen bg-[#050505] text-white overflow-hidden">
+      <header className="p-4 border-b border-zinc-900 flex justify-between items-center bg-black/60 backdrop-blur-xl">
+        <div className="flex items-center gap-3">
+          <img src={user.photoURL} className="w-8 h-8 rounded-full border border-blue-500/30" />
+          <div>
+            <h1 className="text-sm font-black italic text-blue-500">AETHER OS.</h1>
+            <p className="text-[9px] text-zinc-500 font-bold">{user.displayName}</p>
+          </div>
         </div>
-        <div className="flex gap-1">
-          <button onClick={handleAiSummary} className="bg-blue-600/10 text-blue-400 p-2 rounded-lg border border-blue-500/20 hover:bg-blue-600 hover:text-white transition-all">
-            <span className="text-[10px] font-bold">AI</span>
-          </button>
-          <button onClick={() => setIsPopup(!isPopup)} className="bg-zinc-900 text-zinc-400 p-2 rounded-lg border border-zinc-800 hover:bg-zinc-800 transition-all">
-            <span className="text-[10px] font-bold">{isPopup ? "FULL" : "POPUP"}</span>
-          </button>
+        <div className="flex gap-2">
+          <button onClick={handleAiSummary} className="bg-blue-600/10 text-blue-400 px-3 py-1.5 rounded-lg border border-blue-500/20 text-[10px] font-bold">AI</button>
+          <button onClick={handleLogout} className="bg-zinc-900 text-zinc-500 px-3 py-1.5 rounded-lg border border-zinc-800 text-[10px] font-bold">LOGOUT</button>
         </div>
       </header>
 
-      {/* CHAT AREA */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-hide">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-5 space-y-6">
         {messages.map((m) => (
-          <div key={m.id} className={`flex flex-col ${m.user === myDisplayName ? 'items-end' : 'items-start'}`}>
-            <span className="text-[8px] text-zinc-600 mb-1 font-bold px-1 uppercase tracking-tighter">{m.user}</span>
-            <div className={`group relative transition-all duration-300 ${
-              m.user === myDisplayName 
-              ? 'bg-blue-600 rounded-2xl rounded-tr-none shadow-lg shadow-blue-500/10' 
-              : 'bg-zinc-900 border border-zinc-800 rounded-2xl rounded-tl-none'
-            }`}>
-              {m.image && (
-                <img src={m.image} alt="shared" className="max-w-[200px] rounded-xl mb-2 border border-black/20" />
-              )}
-              {m.text && <p className="px-4 py-2 text-sm leading-relaxed">{m.text}</p>}
+          <div key={m.id} className={`flex gap-3 ${m.uid === user.uid ? 'flex-row-reverse' : ''}`}>
+            <img src={m.userPhoto} className="w-8 h-8 rounded-full mt-1 shrink-0" />
+            <div className={`flex flex-col ${m.uid === user.uid ? 'items-end' : 'items-start'}`}>
+              <span className="text-[10px] text-zinc-600 font-bold mb-1">{m.userName}</span>
+              <div className={`group relative p-3 rounded-2xl text-sm ${m.uid === user.uid ? 'bg-blue-600 rounded-tr-none' : 'bg-zinc-900 border border-zinc-800 rounded-tl-none'}`}>
+                {m.image && <img src={m.image} className="max-w-[200px] rounded-lg mb-2" />}
+                {m.text && <p className="whitespace-pre-wrap">{m.text}</p>}
+                
+                {/* 삭제 버튼 (내가 쓴 글에만 마우스 올리면 등장) */}
+                {m.uid === user.uid && (
+                  <button onClick={() => deleteMsg(m.id)} className="absolute -left-8 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 text-zinc-700 hover:text-red-500 transition-all text-xs">삭제</button>
+                )}
+              </div>
             </div>
           </div>
         ))}
-        <div ref={messagesEndRef} className="h-2" />
+        <div ref={messagesEndRef} />
       </div>
 
-      {/* INPUT AREA */}
-      <form onSubmit={sendMessage} className="p-4 bg-black/40 border-t border-zinc-900/50 backdrop-blur-md">
-        <div className="flex items-center gap-2 max-w-4xl mx-auto bg-zinc-900/90 p-1.5 rounded-2xl border border-zinc-800 focus-within:border-blue-500/50">
-          <button 
-            type="button"
-            onClick={() => fileInputRef.current.click()}
-            className="w-10 h-10 flex items-center justify-center bg-zinc-800 text-zinc-400 rounded-xl hover:bg-zinc-700 transition-all"
-          >
-            <span className="text-xl">+</span>
-          </button>
-          <input 
-            type="file" 
-            ref={fileInputRef} 
-            onChange={handleImageUpload} 
-            accept="image/*" 
-            className="hidden" 
-          />
-          <input 
-            value={input} 
-            onChange={(e) => setInput(e.target.value)} 
-            placeholder={isPopup ? "Msg..." : "아이디어를 공유하세요..."} 
-            className="flex-1 bg-transparent px-2 py-2 text-sm focus:outline-none" 
-          />
-          <button type="submit" className="bg-blue-600 text-white px-5 py-2.5 rounded-xl font-black text-xs hover:bg-blue-500 active:scale-95 transition-all shadow-lg shadow-blue-500/20">
-            SEND
-          </button>
+      <form onSubmit={sendMessage} className="p-4 bg-black/60 border-t border-zinc-900/50 backdrop-blur-xl">
+        <div className="flex items-center gap-2 max-w-5xl mx-auto bg-zinc-900/90 p-1.5 rounded-2xl border border-zinc-800">
+          <button type="button" onClick={() => fileInputRef.current.click()} className="w-10 h-10 flex items-center justify-center bg-zinc-800 text-zinc-400 rounded-xl">+</button>
+          <input type="file" ref={fileInputRef} onChange={(e) => {
+            const f = e.target.files[0];
+            if(f) { const r = new FileReader(); r.onloadend = () => sendMessage(null, r.result); r.readAsDataURL(f); }
+          }} accept="image/*" className="hidden" />
+          <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="메시지 입력..." className="flex-1 bg-transparent px-2 py-2 text-sm focus:outline-none" />
+          <button type="submit" className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-black text-xs">SEND</button>
         </div>
       </form>
     </div>
