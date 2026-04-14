@@ -17,7 +17,7 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);
 const storage = getStorage(app);
 
-export default function AetherOS_Stable_Edition() {
+export default function AetherOS_Perfect_Profile() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [currentRoom, setCurrentRoom] = useState("");
@@ -51,6 +51,7 @@ export default function AetherOS_Stable_Edition() {
     return () => unsubscribe();
   }, [myName]);
 
+  // ✨ 프로필 저장 함수 (엔터키 완벽 지원 & 즉시 닫힘)
   const handleProfileSave = async (e) => {
     if (e) e.preventDefault();
     if (!tempName.trim()) return alert("아이디를 입력해주세요!");
@@ -66,13 +67,13 @@ export default function AetherOS_Stable_Edition() {
 
       localStorage.setItem("aether-name", tempName);
       localStorage.setItem("aether-profile", finalImg);
+      
       setMyName(tempName);
       setMyProfileImg(finalImg);
-      setIsEditingProfile(false);
-      alert("프로필이 저장되었습니다! ✅");
+      setIsEditingProfile(false); // 저장 완료 시 편집창 깔끔하게 닫힘
     } catch (err) {
       console.error(err);
-      alert("프로필 저장 중 오류가 발생했습니다.");
+      alert("프로필 저장 중 오류가 발생했습니다. Storage 세팅을 확인하세요.");
     }
   };
 
@@ -94,7 +95,7 @@ export default function AetherOS_Stable_Edition() {
 
   const deleteRoomFromList = async (e, roomId) => {
     e.stopPropagation();
-    if (confirm(`'${roomId}' 방을 목록에서 지울까요? (검색하면 다시 입장 가능)`)) {
+    if (confirm(`'${roomId}' 방을 목록에서 지울까요?`)) {
       await deleteDoc(doc(db, "rooms", roomId));
     }
   };
@@ -132,19 +133,16 @@ export default function AetherOS_Stable_Edition() {
     };
   }, [currentRoom, myName]);
 
-  // ✨ 빠졌던 자동 스크롤 로직 복구
   useEffect(() => {
     if (isUserAtBottom.current) {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
 
-  // ✨ 전송 버그 및 에러 처리 복구
   const sendMessage = async (e, imgData = null) => {
     if (e) e.preventDefault();
     if ((!input.trim() && !imgData) || !myName) return;
 
-    // 즉각적인 반응을 위해 입력창 먼저 비우기
     const currentInput = input;
     setInput("");
 
@@ -166,15 +164,12 @@ export default function AetherOS_Stable_Edition() {
       });
       
       await setDoc(doc(db, "rooms", currentRoom), { updatedAt: serverTimestamp() }, { merge: true });
-      
-      // 전송 후 무조건 아래로 스크롤
       isUserAtBottom.current = true;
       setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
-
     } catch (error) {
       console.error(error);
-      alert("🚨 메시지 전송 실패: Firebase Storage 보안 규칙이 설정되었는지 확인해주세요.");
-      setInput(currentInput); // 실패 시 글자 복구
+      alert("🚨 전송 실패: 파일 저장소 설정에 문제가 있습니다.");
+      setInput(currentInput);
     }
   };
 
@@ -223,30 +218,34 @@ export default function AetherOS_Stable_Edition() {
           <button onClick={() => setCurrentRoom("")} className="text-zinc-600 text-[10px] font-bold uppercase hover:text-white transition-colors">◀ Exit</button>
           <div className="flex flex-col text-left">
             <h1 className="text-xs font-black italic text-blue-500 uppercase leading-none">{currentRoom}</h1>
-            <button onClick={() => { setTempName(myName); setTempImg(myProfileImg); setIsEditingProfile(!isEditingProfile); }} className="text-[8px] text-zinc-500 font-bold uppercase mt-1 underline hover:text-blue-400">Edit Profile</button>
+            {/* ✨ 지워졌던 내 이름 표시 영역 복구 & Edit 버튼 나란히 배치 */}
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-[10px] text-zinc-300 font-bold">{myName}</span>
+              <button onClick={() => { setTempName(myName); setTempImg(myProfileImg); setIsEditingProfile(!isEditingProfile); }} className="text-[8px] text-zinc-500 font-bold uppercase underline hover:text-blue-400">Edit</button>
+            </div>
           </div>
         </div>
         <img src={myProfileImg} className="w-8 h-8 rounded-full border border-zinc-800 object-cover" />
       </header>
 
+      {/* ✨ 폼 태그로 완전히 감싸서 엔터키 작동 보장 */}
       {isEditingProfile && (
         <div className="p-5 bg-zinc-900/95 border-b border-zinc-800 backdrop-blur-md">
-          <div className="flex items-center gap-4 max-w-lg mx-auto">
+          <form onSubmit={handleProfileSave} className="flex items-center gap-4 max-w-lg mx-auto">
             <div className="relative w-12 h-12 rounded-full bg-black shrink-0 overflow-hidden cursor-pointer border border-zinc-700 group" onClick={() => profileInputRef.current.click()}>
               <img src={tempImg || myProfileImg} className="w-full h-full object-cover opacity-60 group-hover:opacity-30 transition-all" />
               <span className="absolute inset-0 flex items-center justify-center text-[10px] font-black uppercase text-white drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]">Edit</span>
             </div>
             <input type="file" ref={profileInputRef} onChange={handleProfileImgUpload} accept="image/*" className="hidden" />
             <input value={tempName} onChange={(e) => setTempName(e.target.value)} className="flex-1 bg-black border border-zinc-800 p-2 rounded-xl text-xs text-white focus:outline-none focus:border-blue-500/50" placeholder="새 아이디" />
-            <button onClick={handleProfileSave} className="bg-blue-600 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase hover:bg-blue-500 transition-all active:scale-95 shadow-lg shadow-blue-500/20">Save</button>
-            <button onClick={() => setIsEditingProfile(false)} className="text-zinc-500 text-[10px] uppercase font-bold px-2 hover:text-white transition-colors">Cancel</button>
-          </div>
+            <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase hover:bg-blue-500 transition-all active:scale-95 shadow-lg shadow-blue-500/20">Save</button>
+            <button type="button" onClick={() => setIsEditingProfile(false)} className="text-zinc-500 text-[10px] uppercase font-bold px-2 hover:text-white transition-colors">Cancel</button>
+          </form>
         </div>
       )}
 
       <div ref={scrollRef} onScroll={(e) => { isUserAtBottom.current = e.currentTarget.scrollHeight - e.currentTarget.scrollTop <= e.currentTarget.clientHeight + 150; }} className="flex-1 overflow-y-auto p-5 space-y-6 scrollbar-hide">
         {messages.map((m) => (
-          /* ✨ 지워졌던 시스템 메시지와 메시지 삭제(DEL) 기능 완벽 복구 */
           m.type === "system" ? (
             <div key={m.id} className="flex justify-center">
               <span className="text-zinc-500 text-[9px] font-bold uppercase tracking-widest bg-zinc-900/50 px-3 py-1 rounded-full border border-zinc-800/50">{m.text}</span>
@@ -259,7 +258,6 @@ export default function AetherOS_Stable_Edition() {
                 <div className={`group relative p-4 rounded-2xl text-[13px] ${m.userName === myName ? 'bg-blue-600 text-white rounded-tr-none shadow-lg shadow-blue-900/20' : 'bg-zinc-900 border border-zinc-800 rounded-tl-none text-zinc-300'}`}>
                   {m.image && <img src={m.image} className="w-full rounded-xl mb-3 shadow-md border border-black/20" />}
                   {m.text && <p className="whitespace-pre-wrap break-words leading-relaxed">{m.text}</p>}
-                  
                   {m.userName === myName && (
                     <button onClick={() => deleteMsg(m.id)} className="absolute -left-10 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 text-zinc-800 hover:text-red-500 text-[10px] font-bold transition-all">DEL</button>
                   )}
