@@ -20,7 +20,7 @@ const FontLink = () => (
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@900&display=swap" rel="stylesheet" />
 );
 
-export default function AetherOS_ChromeGlass_Premium() {
+export default function AetherOS_Prism3D_Premium() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [currentRoom, setCurrentRoom] = useState("");
@@ -39,11 +39,9 @@ export default function AetherOS_ChromeGlass_Premium() {
   const profileInputRef = useRef(null);
   const isUserAtBottom = useRef(true); 
 
-  // ✨ JS 기반 입자 애니메이션 배경을 위한 Ref
-  const canvasRef = useRef(null);
-
-  // ✨ 마우스 위치 추적을 위한 상태 및 효과 추가 (3D 제목 모션)
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  // ✨ Three.js 기반 3D 배경 씬을 위한 Ref
+  const threeCanvasRef = useRef(null);
+  // ✨ 제목 3D 모션을 위한 Ref
   const chromeTextRef = useRef(null);
 
   useEffect(() => {
@@ -57,42 +55,81 @@ export default function AetherOS_ChromeGlass_Premium() {
     if (savedTheme !== null) setIsDarkMode(savedTheme === "true");
     setMyRooms(savedRooms);
 
-    // ✨ JS 입자 애니메이션 시작
-    const canvas = canvasRef.current;
-    if (canvas) {
-      const ctx = canvas.getContext('2d');
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-      let particles = [];
-      const particleCount = 100;
-      for (let i = 0; i < particleCount; i++) {
-        particles.push({
-          x: Math.random() * canvas.width,
-          y: Math.random() * canvas.height,
-          vx: (Math.random() - 0.5) * 0.3,
-          vy: (Math.random() - 0.5) * 0.3,
-          radius: Math.random() * 1.5,
-          color: `rgba(${isDarkMode ? '255, 255, 255' : '100, 100, 100'}, ${Math.random() * 0.5})`
-        });
-      }
-      const animate = () => {
-        requestAnimationFrame(animate);
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        particles.forEach(p => {
-          p.x += p.vx;
-          p.y += p.vy;
-          if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
-          if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, p.radius, 0, Math.random() * 2);
-          ctx.fillStyle = p.color;
-          ctx.fill();
-        });
-      };
-      animate();
+    // ✨ Three.js 입자 애니메이션 시작
+    const canvas = threeCanvasRef.current;
+    if (canvas && !canvas.hasChildNodes()) {
+        const THREE = require('three');
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+
+        // 몽롱한 느낌을 위한 조명
+        const ambientLight = new THREE.AmbientLight(0xffffff, isDarkMode ? 0.3 : 0.8);
+        scene.add(ambientLight);
+        const directionalLight = new THREE.DirectionalLight(0x0077ff, isDarkMode ? 0.5 : 0.1); // 은은한 파란 글로우
+        directionalLight.position.set(1, 1, 1).normalize();
+        scene.add(directionalLight);
+        const pointLight = new THREE.PointLight(0xff00ff, isDarkMode ? 0.4 : 0.05); // 은은한 보라 글로우
+        pointLight.position.set(-2, -2, -2);
+        scene.add(pointLight);
+
+        // 몽글몽글한 3D 기하학 (고래, 별, 조개, 소라)
+        const geometries = [
+            new THREE.IcosahedronGeometry(0.6, 2), // 고래 형태 닮은 몽글한 도형
+            new THREE.TorusGeometry(0.3, 0.1, 12, 48), // 조개/소라 형태 닮은 도형
+            new THREE.ConeGeometry(0.2, 0.6, 6), // 별/소라 형태 닮은 도형
+            new THREE.SphereGeometry(0.3, 16, 16), // 몽글한 구체
+        ];
+
+        // 프리즘 색상 질감 (사용자 요청: 보라, 파란, 연녹)
+        const prismMaterials = [
+            new THREE.MeshPhongMaterial({ color: isDarkMode ? 0x9400D3 : 0xD8BFD8, shininess: 100, specular: 0x555555, transparent: true, opacity: 0.8 }), // 보라
+            new THREE.MeshPhongMaterial({ color: isDarkMode ? 0x0000FF : 0x87CEEB, shininess: 100, specular: 0x555555, transparent: true, opacity: 0.8 }), // 파란
+            new THREE.MeshPhongMaterial({ color: isDarkMode ? 0x32CD32 : 0x98FB98, shininess: 100, specular: 0x555555, transparent: true, opacity: 0.8 }), // 연녹
+        ];
+
+        let shapes = [];
+        const shapeCount = 30; // 여백을 채우기 위해 넉넉하게
+        for (let i = 0; i < shapeCount; i++) {
+            const geometry = geometries[Math.floor(Math.random() * geometries.length)];
+            const material = prismMaterials[Math.floor(Math.random() * prismMaterials.length)];
+            const shape = new THREE.Mesh(geometry, material);
+            
+            // 왼쪽/오른쪽 여백에 분산 배치
+            shape.position.x = (Math.random() - 0.5) * 12 + (i % 2 === 0 ? -5 : 5); 
+            shape.position.y = (Math.random() - 0.5) * 8;
+            shape.position.z = Math.random() * 2 - 1;
+            
+            shape.rotation.x = Math.random() * 2 * Math.PI;
+            shape.rotation.y = Math.random() * 2 * Math.PI;
+            
+            shape.userData = { vx: (Math.random() - 0.5) * 0.01, vy: (Math.random() - 0.5) * 0.01 };
+            shapes.push(shape);
+            scene.add(shape);
+        }
+
+        camera.position.z = 5;
+
+        const animate = () => {
+            requestAnimationFrame(animate);
+            shapes.forEach(shape => {
+                shape.rotation.x += 0.005;
+                shape.rotation.y += 0.005;
+                shape.position.x += shape.userData.vx;
+                shape.position.y += shape.userData.vy;
+                
+                // 화면 경계에서 바운스
+                if (shape.position.x < -10 || shape.position.x > 10) shape.userData.vx *= -1;
+                if (shape.position.y < -6 || shape.position.y > 6) shape.userData.vy *= -1;
+            });
+            renderer.render(scene, camera);
+        };
+        animate();
     }
 
-    // ✨ 마우스 움직임 감지 이벤트 리스너 추가 (첫 화면용)
+    // ✨ 마우스 움직임 감지 이벤트 리스너 추가 (첫 화면 제목 3D 모션)
     const handleMouseMove = (e) => {
         if (!myName) { // 로그인 전 설정 화면에서만 작동
             const text = chromeTextRef.current;
@@ -154,6 +191,15 @@ export default function AetherOS_ChromeGlass_Premium() {
     setCurrentRoom(name);
   };
 
+  const leaveRoom = (e, roomName) => {
+    e.stopPropagation();
+    if (confirm(`'${roomName}' 노드에서 나가시겠습니까? (다른 사람의 대화는 유지됩니다)`)) {
+      const updatedRooms = myRooms.filter(r => r !== roomName);
+      setMyRooms(updatedRooms);
+      localStorage.setItem("aether-my-rooms", JSON.stringify(updatedRooms));
+    }
+  };
+
   const deleteMsg = async (id) => {
     if (confirm("메시지를 삭제하시겠습니까?")) {
       await deleteDoc(doc(db, "rooms", currentRoom, "messages", id));
@@ -208,15 +254,18 @@ export default function AetherOS_ChromeGlass_Premium() {
     }
   };
 
-  // ✨ 테마별 컬러 및 질감 변수 설정
+  // ✨ 테마 컬러 및 질감 변수 설정
   const theme = {
+    // 짙은 남색-보라 그라데이션 배경 추가
     bg: isDarkMode ? "bg-gradient-to-br from-[#050A1A] to-[#120520]" : "bg-gradient-to-br from-[#F0F2F5] to-[#E9EBF0]",
     chatBg: isDarkMode ? "bg-[#080808]/60" : "bg-white/70",
     headerBg: isDarkMode ? "bg-black/40 backdrop-blur-xl" : "bg-white/60 backdrop-blur-xl",
     border: isDarkMode ? "border-white/5" : "border-black/5",
     textMain: isDarkMode ? "text-white" : "text-black",
     textSub: isDarkMode ? "text-zinc-500" : "text-zinc-400",
+    // ✨ 글래스 모피즘 카드 질감 강화
     card: isDarkMode ? "bg-white/5 border border-white/10 backdrop-blur-md shadow-inner" : "bg-white/80 border border-black/5 backdrop-blur-md shadow-sm",
+    // ✨ 입력창과 버튼의 글래스 질감 강화
     input: isDarkMode ? "bg-black/50 border border-white/10 shadow-inner" : "bg-white border border-black/10 shadow-sm",
     bubbleOther: isDarkMode ? "bg-zinc-900 border border-zinc-800 text-zinc-300 shadow-sm" : "bg-zinc-100 border border-zinc-200 text-zinc-700 shadow-sm",
     bubbleMe: "bg-gradient-to-br from-blue-600 to-indigo-700 text-white shadow-lg shadow-blue-500/10",
@@ -227,10 +276,12 @@ export default function AetherOS_ChromeGlass_Premium() {
   if (!myName) return (
     <div className={`h-screen ${theme.bg} flex flex-col items-center justify-center p-10 font-sans transition-colors duration-500 relative overflow-hidden`}>
       <FontLink />
-      <canvas ref={canvasRef} className="absolute inset-0 z-0 pointer-events-none" />
+      {/* ✨ Three.js 3D 배경 오버레이 */}
+      <canvas ref={threeCanvasRef} className="absolute inset-0 z-0 pointer-events-none" />
       
-      <div className={`${theme.card} p-16 rounded-[40px] flex flex-col items-center gap-12 z-10 ${theme.chromeBorder}`}>
-          {/* ✨ DOOLY 텍스트: 레퍼런스의 크롬/유리 3D 효과 적용 및 마우스 모션 적용 */}
+      {/* ✨ 중앙 카드 (팝업창) 디자인 */}
+      <div className={`${theme.card} p-16 rounded-[40px] flex flex-col items-center gap-12 z-10 ${theme.chromeBorder} animate-in fade-in zoom-in duration-500`}>
+          {/* ✨ DOOLY 텍스트: 레퍼런스의 크롬 질감에 사용자가 요청한 프리즘 색상 은은하게 적용 */}
           <h1 ref={chromeTextRef} className="DOOLY_CHROME text-9xl font-black italic tracking-tighter uppercase select-none transition-all" style={{ fontFamily: "'Playfair Display', serif" }} data-text="DOOLY">
             DOOLY
           </h1>
@@ -273,14 +324,15 @@ export default function AetherOS_ChromeGlass_Premium() {
         mix-blend-mode: overlay;
         filter: blur(2px);
       }
+      /* ✨ 사용자 요청: 보라-파란-연녹색 프리즘 색상 은은하게 오버레이 */
       .DOOLY_CHROME::after {
         content: attr(data-text);
         position: absolute;
         inset: 0;
-        background: linear-gradient(135deg, #FFD700 0%, transparent 50%, #FFD700 100%);
+        background: linear-gradient(135deg, #FF00FF 0%, #0000FF 50%, #00FF00 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        opacity: ${isDarkMode ? '0.15' : '0.05'};
+        opacity: ${isDarkMode ? '0.1' : '0.03'};
         mix-blend-mode: color-dodge;
       }
       .CHROME_BUTTON {
@@ -299,10 +351,10 @@ export default function AetherOS_ChromeGlass_Premium() {
 
   if (!currentRoom) return (
     <div className={`h-screen ${theme.bg} flex flex-col items-center justify-center p-5 text-center font-sans transition-colors duration-500 relative overflow-hidden`}>
-      <canvas ref={canvasRef} className="absolute inset-0 z-0 pointer-events-none" />
+      <canvas ref={threeCanvasRef} className="absolute inset-0 z-0 pointer-events-none" />
       <div className={`${theme.card} p-12 rounded-[30px] flex flex-col items-center gap-10 z-10 ${theme.chromeBorder}`}>
           <div className="mb-4 flex flex-col items-center">
-            <img src={myProfileImg} className={`w-20 h-20 rounded-full border-2 ${isDarkMode ? 'border-blue-500/30' : 'border-blue-500/10'} mb-3 object-cover shadow-2xl ${theme.chromeBorder}`} />
+            <img src={myProfileImg} className={`w-20 h-20 rounded-full border-2 ${isDarkMode ? 'border-blue-500/30 shadow-[#E0BC6C]/20 shadow-lg' : 'border-blue-500/10'} mb-3 object-cover shadow-2xl ${theme.chromeBorder}`} />
             <p className={`${theme.textMain} font-black text-xl`}>{myName}</p>
             <div className="flex gap-5 mt-3">
                <button onClick={toggleTheme} className="text-blue-500 text-[10px] font-bold uppercase tracking-widest CHROME_MODE_BUTTON">{isDarkMode ? "Day Mode" : "Night Mode"}</button>
