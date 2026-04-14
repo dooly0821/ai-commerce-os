@@ -15,12 +15,11 @@ const firebaseConfig = {
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);
 
-export default function DoolyOS_Galaxy_Prism() {
+export default function DoolyOS_Shader_Premium() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [currentRoom, setCurrentRoom] = useState("");
   const [myRooms, setMyRooms] = useState([]); 
-  
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [myName, setMyName] = useState(""); 
   const [myProfileImg, setMyProfileImg] = useState(""); 
@@ -28,39 +27,119 @@ export default function DoolyOS_Galaxy_Prism() {
   const [tempName, setTempName] = useState("");
   const [tempImg, setTempImg] = useState("");
 
+  const canvasRef = useRef(null);
   const scrollRef = useRef(null); 
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null); 
   const profileInputRef = useRef(null);
-  const isUserAtBottom = useRef(true); 
-  const chromeTextRef = useRef(null);
+  const isUserAtBottom = useRef(true);
+
+  // ✨ WebGL 셰이더 로직 통합
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const gl = canvas.getContext('webgl');
+    if (!gl) return;
+
+    const vsSource = `attribute vec2 position; void main() { gl_Position = vec4(position, 0.0, 1.0); }`;
+    const fsSource = `
+      precision highp float;
+      uniform float uTime;
+      uniform vec2 uResolution;
+      uniform vec2 uMouse;
+      uniform float uMode;
+
+      mat2 rot(float a) { float s=sin(a), c=cos(a); return mat2(c, -s, s, c); }
+      float sdOctahedron(vec3 p, float s) {
+        p = abs(p); float m = p.x + p.y + p.z - s;
+        return m * 0.57735027;
+      }
+      float map(vec3 p) {
+        p.xz *= rot(uTime * 0.2); p.xy *= rot(uTime * 0.1);
+        float core = sdOctahedron(p, 1.8) + sin(p.x*3.0+uTime)*0.1;
+        return core;
+      }
+      vec3 getNormal(vec3 p) {
+        vec2 e = vec2(0.001, 0.0);
+        return normalize(vec3(map(p+e.xyy)-map(p-e.xyy), map(p+e.yxy)-map(p-e.yxy), map(p+e.yyx)-map(p-e.yyx)));
+      }
+      vec3 getBackground(vec3 rd) {
+        float b = max(0.0, rd.y * 0.5 + 0.5);
+        vec3 color = mix(vec3(0.02, 0.02, 0.05), vec3(0.1, 0.05, 0.2), b);
+        if(uMode < 0.5) color = mix(vec3(0.9, 0.92, 0.95), vec3(0.7, 0.8, 1.0), b);
+        return color;
+      }
+      void main() {
+        vec2 uv = (gl_FragCoord.xy - 0.5 * uResolution) / min(uResolution.x, uResolution.y);
+        vec3 ro = vec3(0, 0, 5.0);
+        vec3 rd = normalize(vec3(uv, -1.0));
+        float t = 0.0;
+        for(int i=0; i<60; i++) {
+          float d = map(ro + rd * t);
+          if(d < 0.001 || t > 20.0) break;
+          t += d;
+        }
+        vec3 col = getBackground(rd);
+        if(t < 20.0) {
+          vec3 p = ro + rd * t;
+          vec3 n = getNormal(p);
+          float fresnel = pow(1.0 - max(0.0, dot(-rd, n)), 3.0);
+          vec3 refr = refract(rd, n, 0.6);
+          vec3 prism = vec3(
+            getBackground(refract(rd, n, 0.62)).r,
+            getBackground(refract(rd, n, 0.65)).g,
+            getBackground(refract(rd, n, 0.68)).b
+          );
+          col = prism * 2.0 + fresnel * vec3(0.5, 0.8, 1.0);
+        }
+        gl_FragColor = vec4(col, 1.0);
+      }
+    `;
+
+    const createShader = (gl, type, source) => {
+      const s = gl.createShader(type);
+      gl.shaderSource(s, source); gl.compileShader(s);
+      return s;
+    };
+    const program = gl.createProgram();
+    gl.attachShader(program, createShader(gl, gl.VERTEX_SHADER, vsSource));
+    gl.attachShader(program, createShader(gl, gl.FRAGMENT_SHADER, fsSource));
+    gl.linkProgram(program);
+
+    const posBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+
+    const uTime = gl.getUniformLocation(program, 'uTime');
+    const uRes = gl.getUniformLocation(program, 'uResolution');
+    const uMode = gl.getUniformLocation(program, 'uMode');
+    const posLoc = gl.getAttribLocation(program, 'position');
+
+    const render = (time) => {
+      canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.useProgram(program);
+      gl.uniform1f(uTime, time * 0.001);
+      gl.uniform2f(uRes, canvas.width, canvas.height);
+      gl.uniform1f(uMode, isDarkMode ? 1.0 : 0.0);
+      gl.enableVertexAttribArray(posLoc);
+      gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      requestAnimationFrame(render);
+    };
+    requestAnimationFrame(render);
+  }, [isDarkMode]);
 
   useEffect(() => {
     const savedName = localStorage.getItem("aether-name");
     const savedImg = localStorage.getItem("aether-profile");
     const savedTheme = localStorage.getItem("aether-theme");
     const savedRooms = JSON.parse(localStorage.getItem("aether-my-rooms") || "[]");
-    
     if (savedName) { setMyName(savedName); setTempName(savedName); }
     if (savedImg) { setMyProfileImg(savedImg); setTempImg(savedImg); }
     if (savedTheme !== null) setIsDarkMode(savedTheme === "true");
     setMyRooms(savedRooms);
-
-    const handleMouseMove = (e) => {
-        if (!currentRoom) { 
-            const text = chromeTextRef.current;
-            if (text) {
-                const rect = text.getBoundingClientRect();
-                const rotateX = (e.clientY - (rect.top + rect.height/2)) * -0.05; 
-                const rotateY = (e.clientX - (rect.left + rect.width/2)) * 0.05;
-                text.style.setProperty('--rotateX', `${rotateX}deg`);
-                text.style.setProperty('--rotateY', `${rotateY}deg`);
-            }
-        }
-    };
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, [currentRoom]);
+  }, []);
 
   const toggleTheme = () => {
     const newMode = !isDarkMode;
@@ -124,12 +203,6 @@ export default function DoolyOS_Galaxy_Prism() {
     return () => unsubscribe();
   }, [currentRoom, myName]);
 
-  useEffect(() => {
-    if (isUserAtBottom.current) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [messages]);
-
   const sendMessage = async (e, imgData = null) => {
     if (e) e.preventDefault();
     if ((!input.trim() && !imgData) || !myName) return;
@@ -149,139 +222,91 @@ export default function DoolyOS_Galaxy_Prism() {
   };
 
   const theme = {
-    bg: isDarkMode ? "bg-[#020205]" : "bg-[#F0F2F5]",
-    textMain: isDarkMode ? "text-white" : "text-black",
-    textSub: isDarkMode ? "text-zinc-500" : "text-zinc-400",
-    card: isDarkMode ? "bg-black/40 border border-white/10 backdrop-blur-3xl shadow-[0_0_50px_rgba(0,0,0,0.8)]" : "bg-white/80 border border-black/5 backdrop-blur-3xl shadow-2xl",
-    input: isDarkMode ? "bg-white/5 border border-white/10" : "bg-black/5 border border-black/5",
+    bg: isDarkMode ? "bg-black" : "bg-white",
+    card: isDarkMode ? "bg-black/40 border-white/10" : "bg-white/80 border-black/5",
+    text: isDarkMode ? "text-white" : "text-black",
+    input: isDarkMode ? "bg-white/5 border-white/10" : "bg-black/5 border-black/5",
   };
 
-  // ✨ 은하수 & 젤리 배경 컴포넌트
-  const GalaxyBackground = () => (
-    <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-      <div className="absolute inset-0 opacity-30 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')]"></div>
-      {/* 젤리 형태의 유동적 구름들 */}
-      <div className={`absolute top-[-10%] left-[-10%] w-[60%] h-[60%] ${isDarkMode ? 'bg-purple-900/20' : 'bg-purple-200/40'} rounded-full blur-[120px] animate-pulse`}></div>
-      <div className={`absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] ${isDarkMode ? 'bg-blue-900/20' : 'bg-blue-200/40'} rounded-full blur-[120px] animate-pulse animation-delay-2000`}></div>
-      {/* 별빛 입자들 */}
-      {[...Array(50)].map((_, i) => (
-        <div key={i} className="absolute bg-white rounded-full animate-twinkle" 
-             style={{ 
-               top: `${Math.random() * 100}%`, 
-               left: `${Math.random() * 100}%`, 
-               width: `${Math.random() * 3}px`, 
-               height: `${Math.random() * 3}px`,
-               animationDelay: `${Math.random() * 5}s`
-             }}></div>
-      ))}
-    </div>
-  );
-
   if (!myName) return (
-    <div className={`h-screen ${theme.bg} flex items-center justify-center p-6 font-sans relative overflow-hidden transition-colors duration-700`}>
-      <GalaxyBackground />
-      <div className={`${theme.card} p-12 w-full max-w-[450px] rounded-[50px] flex flex-col items-center gap-10 z-10 animate-in zoom-in duration-1000`}>
-          <div className="flex flex-col items-center gap-2">
-            <h1 ref={chromeTextRef} className="PRISM_TEXT text-8xl font-black tracking-tighter uppercase italic select-none" data-text="DOOLY">DOOLY</h1>
-            <button onClick={toggleTheme} className="text-[10px] font-bold tracking-[0.2em] text-blue-500 uppercase hover:brightness-125 transition-all">
-                {isDarkMode ? "Switch to Day Mode" : "Switch to Night Mode"}
-            </button>
+    <div className={`h-screen ${theme.bg} flex items-center justify-center font-sans overflow-hidden transition-all duration-700`}>
+      <canvas ref={canvasRef} className="absolute inset-0 z-0" />
+      <div className={`${theme.card} relative z-10 w-full max-w-md p-12 rounded-[50px] border backdrop-blur-3xl shadow-2xl flex flex-col items-center gap-10 animate-in zoom-in duration-1000`}>
+        <div className="text-center">
+          <h1 className="DOOLY_GLOW text-8xl font-black italic tracking-tighter mb-2">DOOLY</h1>
+          <button onClick={toggleTheme} className="text-[10px] font-bold tracking-widest text-blue-500 uppercase">
+            {isDarkMode ? "Night Protocol" : "Day Protocol"}
+          </button>
+        </div>
+        <form onSubmit={handleProfileSave} className="w-full flex flex-col items-center gap-8">
+          <div className={`w-28 h-28 rounded-full ${theme.input} border overflow-hidden cursor-pointer flex items-center justify-center`} onClick={() => profileInputRef.current.click()}>
+            {tempImg ? <img src={tempImg} className="w-full h-full object-cover" /> : <span className="text-[10px] font-bold text-zinc-500">PHOTO +</span>}
           </div>
-          <form onSubmit={handleProfileSave} className="w-full flex flex-col items-center gap-8">
-            <div className={`w-32 h-32 rounded-full ${theme.input} overflow-hidden flex items-center justify-center cursor-pointer border-2 border-transparent hover:border-blue-500 transition-all`} onClick={() => profileInputRef.current.click()}>
-              {tempImg ? <img src={tempImg} className="w-full h-full object-cover" /> : <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Photo +</span>}
-            </div>
-            <input type="file" ref={profileInputRef} onChange={handleProfileImgUpload} accept="image/*" className="hidden" />
-            <input value={tempName} onChange={(e) => setTempName(e.target.value)} placeholder="ENTER YOUR ID" className={`w-full ${theme.input} px-8 py-5 rounded-2xl ${theme.textMain} text-center focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm font-bold tracking-widest placeholder:text-zinc-600`} />
-            <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white py-5 rounded-2xl font-black uppercase tracking-[0.3em] text-[12px] shadow-2xl shadow-blue-500/40 transition-all active:scale-95">Start System</button>
-          </form>
+          <input type="file" ref={profileInputRef} onChange={handleProfileImgUpload} accept="image/*" className="hidden" />
+          <input value={tempName} onChange={(e) => setTempName(e.target.value)} placeholder="ACCESS ID" className={`w-full ${theme.input} border p-5 rounded-2xl ${theme.text} text-center font-bold tracking-widest outline-none`} />
+          <button type="submit" className="w-full bg-blue-600 py-5 rounded-2xl text-white font-black tracking-widest shadow-lg shadow-blue-500/30">START SYSTEM</button>
+        </form>
       </div>
-
       <style jsx global>{`
-        @font-face { font-family: 'Gothic'; src: local('Pretendard-Bold'), local('Inter-Bold'), sans-serif; }
-        * { font-family: 'Gothic', sans-serif; }
-        @keyframes twinkle { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; transform: scale(1.2); } }
-        .animate-twinkle { animation: twinkle 3s infinite ease-in-out; }
-        
-        .PRISM_TEXT {
-          position: relative;
-          background: linear-gradient(180deg, #fff 0%, #aaa 100%);
+        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+        * { font-family: 'Pretendard', -apple-system, sans-serif !important; letter-spacing: -0.02em; }
+        .DOOLY_GLOW {
+          background: linear-gradient(135deg, #fff 0%, #aaa 100%);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
-          transform-style: preserve-3d;
-          transform: perspective(1000px) rotateX(var(--rotateX, 0deg)) rotateY(var(--rotateY, 0deg));
-          filter: drop-shadow(0 10px 20px rgba(0,0,0,0.5));
+          filter: drop-shadow(0 0 20px rgba(255,255,255,0.4)) drop-shadow(0 0 40px rgba(0,191,255,0.3));
         }
-        .PRISM_TEXT::after {
-          content: attr(data-text);
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(120deg, #ff00ff, #00ffff, #ffff00, #ff00ff);
-          background-size: 300% auto;
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          mix-blend-mode: ${isDarkMode ? 'color-dodge' : 'overlay'};
-          opacity: 0.8;
-          animation: prismFlow 4s linear infinite;
-          z-index: 1;
-        }
-        @keyframes prismFlow { 0% { background-position: 0% center; } 100% { background-position: 300% center; } }
       `}</style>
     </div>
   );
 
-  // 리스트 및 채팅창은 팝업 모드와 고딕 폰트 테마를 유지하며 기능 수행
   if (!currentRoom) return (
-    <div className={`h-screen ${theme.bg} flex items-center justify-center p-6 relative overflow-hidden transition-colors duration-700`}>
-      <GalaxyBackground />
-      <div className={`${theme.card} p-10 w-full max-w-[450px] rounded-[40px] z-10 animate-in fade-in duration-500`}>
-          <div className="flex flex-col items-center mb-10">
-            <img src={myProfileImg} className="w-24 h-24 rounded-full border-2 border-blue-500/20 mb-4 object-cover shadow-2xl" />
-            <h2 className={`text-2xl font-black ${theme.textMain} tracking-tighter uppercase`}>{myName}</h2>
-            <div className="flex gap-6 mt-4">
-               <button onClick={toggleTheme} className="text-[9px] font-bold text-blue-500 uppercase tracking-widest">{isDarkMode ? "Day Mode" : "Night Mode"}</button>
-               <button onClick={() => { localStorage.clear(); location.reload(); }} className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest">Logout</button>
-            </div>
+    <div className={`h-screen ${theme.bg} flex items-center justify-center overflow-hidden transition-all duration-700`}>
+      <canvas ref={canvasRef} className="absolute inset-0 z-0" />
+      <div className={`${theme.card} relative z-10 w-full max-w-md p-10 rounded-[40px] border backdrop-blur-3xl shadow-2xl`}>
+        <div className="flex flex-col items-center mb-10">
+          <img src={myProfileImg} className="w-24 h-24 rounded-full border-2 border-blue-500/20 mb-4 object-cover" />
+          <h2 className={`text-2xl font-black ${theme.text}`}>{myName}</h2>
+          <div className="flex gap-5 mt-4">
+            <button onClick={toggleTheme} className="text-[9px] font-bold text-blue-500 uppercase">{isDarkMode ? "Day" : "Night"}</button>
+            <button onClick={() => { localStorage.clear(); location.reload(); }} className="text-[9px] font-bold text-zinc-500 uppercase">Logout</button>
           </div>
-          <div className="space-y-6">
-            <input onKeyDown={(e) => e.key === 'Enter' && joinRoom(e.currentTarget.value)} placeholder="SEARCH OR CREATE NODE" className={`w-full ${theme.input} px-6 py-4 rounded-xl ${theme.textMain} text-center focus:outline-none focus:ring-1 focus:ring-blue-500 text-xs font-bold tracking-widest`} />
-            <div className="max-h-[30vh] overflow-y-auto space-y-3 pr-2 scrollbar-hide">
-              {myRooms.map((room) => (
-                <div key={room} className="relative group">
-                  <button onClick={() => joinRoom(room)} className={`w-full ${theme.input} p-4 rounded-xl flex items-center justify-between hover:bg-blue-600/10 transition-all`}>
-                    <span className={`font-black ${theme.textMain} text-sm`}>{room}</span>
-                    <span className="text-[9px] text-blue-500 font-bold uppercase">Connect</span>
-                  </button>
-                  <button onClick={(e) => leaveRoom(e, room)} className="absolute -right-2 -top-2 w-6 h-6 bg-red-500/20 text-red-500 rounded-full text-[10px] opacity-0 group-hover:opacity-100 transition-all">✕</button>
-                </div>
-              ))}
-            </div>
+        </div>
+        <div className="space-y-6">
+          <input onKeyDown={(e) => e.key === 'Enter' && joinRoom(e.currentTarget.value)} placeholder="SEARCH NODE" className={`w-full ${theme.input} border p-4 rounded-xl ${theme.text} text-center font-bold outline-none`} />
+          <div className="max-h-[30vh] overflow-y-auto space-y-2 pr-2 scrollbar-hide">
+            {myRooms.map((room) => (
+              <button key={room} onClick={() => joinRoom(room)} className={`w-full ${theme.input} border p-4 rounded-xl flex justify-between items-center hover:bg-blue-600/10 transition-all group`}>
+                <span className={`font-black ${theme.text}`}>{room}</span>
+                <span className="text-[9px] text-blue-500 font-bold opacity-0 group-hover:opacity-100 transition-opacity">CONNECT</span>
+              </button>
+            ))}
           </div>
+        </div>
       </div>
     </div>
   );
 
   return (
-    <div className={`flex flex-col h-screen ${isDarkMode ? 'bg-[#050505]' : 'bg-[#F9F9F9]'} transition-colors`}>
+    <div className={`flex flex-col h-screen ${isDarkMode ? 'bg-[#050505]' : 'bg-[#f5f5f5]'} transition-colors`}>
       <header className={`px-8 py-5 border-b ${theme.border} flex justify-between items-center backdrop-blur-md z-10`}>
         <div className="flex items-center gap-6">
-          <button onClick={() => setCurrentRoom("")} className="text-blue-500 text-[10px] font-black uppercase tracking-widest">◀ Exit</button>
-          <h1 className="text-sm font-black text-blue-500 uppercase tracking-tighter italic">{currentRoom}</h1>
+          <button onClick={() => setCurrentRoom("")} className="text-blue-500 text-[10px] font-black uppercase">◀ Exit</button>
+          <h1 className="text-sm font-black text-blue-500 italic uppercase">{currentRoom}</h1>
         </div>
         <div className="flex items-center gap-4">
-          <button onClick={toggleTheme} className={`text-[9px] font-bold border ${theme.border} px-3 py-2 rounded-full ${theme.textSub}`}>{isDarkMode ? "DAY" : "NIGHT"}</button>
-          <img src={myProfileImg} className="w-9 h-9 rounded-full object-cover border ${theme.border}" />
+          <button onClick={toggleTheme} className={`text-[9px] font-bold border ${theme.border} px-3 py-2 rounded-full`}>{isDarkMode ? "DAY" : "NIGHT"}</button>
+          <img src={myProfileImg} className="w-9 h-9 rounded-full object-cover border" />
         </div>
       </header>
-
-      <div ref={scrollRef} onScroll={(e) => { isUserAtBottom.current = e.currentTarget.scrollHeight - e.currentTarget.scrollTop <= e.currentTarget.clientHeight + 150; }} className="flex-1 overflow-y-auto p-8 space-y-8 scrollbar-hide">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-8 space-y-8 scrollbar-hide">
         {messages.map((m) => (
           <div key={m.id} className={`flex gap-4 ${m.userName === myName ? 'flex-row-reverse' : ''}`}>
-            <img src={m.userPhoto} className="w-9 h-9 rounded-full shrink-0 object-cover border ${theme.border}" />
+            <img src={m.userPhoto} className="w-9 h-9 rounded-full shrink-0 object-cover" />
             <div className={`flex flex-col ${m.userName === myName ? 'items-end' : 'items-start'} max-w-[70%]`}>
-              <span className="text-[9px] font-bold text-zinc-500 mb-2 uppercase tracking-widest">{m.userName}</span>
-              <div className={`p-5 rounded-2xl text-[14px] leading-relaxed shadow-sm ${m.userName === myName ? 'bg-blue-600 text-white rounded-tr-none' : `${theme.card} rounded-tl-none ${theme.textMain}`}`}>
-                {m.image && <img src={m.image} className="w-full rounded-xl mb-4 border border-white/10" />}
+              <span className="text-[9px] font-bold text-zinc-500 mb-2 uppercase">{m.userName}</span>
+              <div className={`p-5 rounded-2xl text-[14px] leading-relaxed ${m.userName === myName ? 'bg-blue-600 text-white rounded-tr-none' : `${theme.card} rounded-tl-none border ${theme.text}`}`}>
+                {m.image && <img src={m.image} className="w-full rounded-xl mb-4" />}
                 <p>{m.text}</p>
               </div>
             </div>
@@ -289,13 +314,12 @@ export default function DoolyOS_Galaxy_Prism() {
         ))}
         <div ref={messagesEndRef} />
       </div>
-
       <footer className="p-6">
-        <form onSubmit={sendMessage} className={`max-w-4xl mx-auto flex items-center gap-3 ${theme.input} p-2 rounded-2xl focus-within:ring-1 focus-within:ring-blue-500 transition-all`}>
-          <button type="button" onClick={() => fileInputRef.current.click()} className="w-11 h-11 flex items-center justify-center rounded-xl text-zinc-500 hover:bg-blue-500 hover:text-white transition-all">+</button>
+        <form onSubmit={sendMessage} className={`max-w-4xl mx-auto flex items-center gap-3 ${theme.input} border p-2 rounded-2xl`}>
+          <button type="button" onClick={() => fileInputRef.current.click()} className="w-11 h-11 text-zinc-500">+</button>
           <input type="file" ref={fileInputRef} onChange={(e) => { const f = e.target.files[0]; if(f) { const r = new FileReader(); r.onloadend = () => sendMessage(null, r.result); r.readAsDataURL(f); } }} accept="image/*" className="hidden" />
-          <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Type a message..." className={`flex-1 bg-transparent px-2 py-3 text-sm ${theme.textMain} focus:outline-none font-bold`} />
-          <button type="submit" className="bg-blue-600 text-white px-8 py-3 rounded-xl font-black text-[11px] uppercase tracking-widest shadow-xl shadow-blue-500/20 active:scale-95 transition-all">Send</button>
+          <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Type message..." className={`flex-1 bg-transparent px-2 text-sm ${theme.text} outline-none font-bold`} />
+          <button type="submit" className="bg-blue-600 text-white px-8 py-3 rounded-xl font-black text-[11px] uppercase shadow-lg">Send</button>
         </form>
       </footer>
     </div>
