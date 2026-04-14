@@ -20,16 +20,28 @@ const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 const genAI = new GoogleGenerativeAI("AIzaSyCSFPBsziw2QX5eAZoUYtMKGeF1XaVfccI");
 
-export default function AetherOSV2() {
+export default function AetherOSV3() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [user, setUser] = useState(null);
-  const [currentRoom, setCurrentRoom] = useState(""); // 현재 방 이름
+  const [currentRoom, setCurrentRoom] = useState("");
   const [isAiLoading, setIsAiLoading] = useState(false);
   
   const scrollRef = useRef(null);
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
+  
+  // ✨ 스마트 스크롤: 유저가 맨 아래를 보고 있는지 기억하는 변수
+  const isUserAtBottom = useRef(true);
+
+  // ✨ 스크롤 감지 함수
+  const handleScroll = () => {
+    const container = scrollRef.current;
+    if (container) {
+      // 바닥에서 150px 이내로 있으면 '바닥에 있다'고 판단
+      isUserAtBottom.current = container.scrollHeight - container.scrollTop <= container.clientHeight + 150;
+    }
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => setUser(u));
@@ -40,7 +52,7 @@ export default function AetherOSV2() {
   useEffect(() => {
     if (!currentRoom || !user) return;
 
-    // 입장 알림 메시지 한 번만 전송
+    // 입장 알림 (한 번만)
     const sendEnterMsg = async () => {
       await addDoc(collection(db, "rooms", currentRoom, "messages"), {
         type: "system",
@@ -54,10 +66,17 @@ export default function AetherOSV2() {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const newMsgs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
       setMessages(newMsgs);
-      // 스크롤 제어: 다른 사람이 치는 대화로는 화면을 내리지 않음
     });
     return () => unsubscribe();
   }, [currentRoom, user]);
+
+  // ✨ 메시지가 업데이트될 때마다 스크롤 위치 결정
+  useEffect(() => {
+    if (isUserAtBottom.current) {
+      // 유저가 바닥을 보고 있었다면 자동으로 내려줌
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages]);
 
   const handleLogin = () => signInWithPopup(auth, provider);
   const handleLogout = () => { signOut(auth); setCurrentRoom(""); };
@@ -76,7 +95,9 @@ export default function AetherOSV2() {
       createdAt: serverTimestamp()
     });
     setInput("");
-    // 내가 보냈을 때만 확실하게 아래로 스크롤
+    
+    // 내가 보냈을 때는 무조건 화면을 바닥으로 고정
+    isUserAtBottom.current = true;
     setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
   };
 
@@ -95,7 +116,6 @@ export default function AetherOSV2() {
     setIsAiLoading(false);
   };
 
-  // 로그인 화면
   if (!user) return (
     <div className="h-screen bg-[#050505] flex flex-col items-center justify-center p-10">
       <h1 className="text-4xl font-black italic text-blue-500 mb-8">AETHER OS.</h1>
@@ -105,7 +125,6 @@ export default function AetherOSV2() {
     </div>
   );
 
-  // 방 선택 화면
   if (!currentRoom) return (
     <div className="h-screen bg-[#050505] flex flex-col items-center justify-center p-10">
       <div className="w-full max-w-sm space-y-4">
@@ -136,7 +155,8 @@ export default function AetherOSV2() {
         </div>
       </header>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-5 space-y-6">
+      {/* ✨ onScroll 이벤트가 추가된 대화창 영역 */}
+      <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto p-5 space-y-6">
         {messages.map((m) => (
           m.type === "system" ? (
             <div key={m.id} className="flex justify-center">
