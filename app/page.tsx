@@ -15,12 +15,7 @@ const firebaseConfig = {
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);
 
-// ✨ Google Fonts: 하이엔드 Serif 폰트
-const FontLink = () => (
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@1,900&display=swap" rel="stylesheet" />
-);
-
-export default function AetherOS_PrismChrome_Popup() {
+export default function DoolyOS_Galaxy_Prism() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [currentRoom, setCurrentRoom] = useState("");
@@ -51,16 +46,13 @@ export default function AetherOS_PrismChrome_Popup() {
     if (savedTheme !== null) setIsDarkMode(savedTheme === "true");
     setMyRooms(savedRooms);
 
-    // ✨ 마우스 모션: 팝업창 중앙의 크롬 텍스트를 3D로 움직이게 합니다.
     const handleMouseMove = (e) => {
         if (!currentRoom) { 
             const text = chromeTextRef.current;
             if (text) {
                 const rect = text.getBoundingClientRect();
-                const textCenterX = rect.left + rect.width / 2;
-                const textCenterY = rect.top + rect.height / 2;
-                const rotateX = (e.clientY - textCenterY) * -0.05; 
-                const rotateY = (e.clientX - textCenterX) * 0.05;
+                const rotateX = (e.clientY - (rect.top + rect.height/2)) * -0.05; 
+                const rotateY = (e.clientX - (rect.left + rect.width/2)) * 0.05;
                 text.style.setProperty('--rotateX', `${rotateX}deg`);
                 text.style.setProperty('--rotateY', `${rotateY}deg`);
             }
@@ -125,26 +117,11 @@ export default function AetherOS_PrismChrome_Popup() {
 
   useEffect(() => {
     if (!currentRoom || !myName) return;
-    const hasEnteredKey = `entered_${currentRoom}_${myName}`;
-    if (!sessionStorage.getItem(hasEnteredKey)) {
-      addDoc(collection(db, "rooms", currentRoom, "messages"), {
-        type: "system", text: `${myName}님이 접속했습니다.`, createdAt: serverTimestamp()
-      });
-      sessionStorage.setItem(hasEnteredKey, 'true');
-    }
     const q = query(collection(db, "rooms", currentRoom, "messages"), orderBy("createdAt", "asc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setMessages(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
     });
-    return () => {
-      if (currentRoom && myName) {
-        addDoc(collection(db, "rooms", currentRoom, "messages"), {
-          type: "system", text: `${myName}님이 연결을 해제했습니다.`, createdAt: serverTimestamp()
-        });
-        sessionStorage.removeItem(hasEnteredKey);
-      }
-      unsubscribe();
-    };
+    return () => unsubscribe();
   }, [currentRoom, myName]);
 
   useEffect(() => {
@@ -171,245 +148,154 @@ export default function AetherOS_PrismChrome_Popup() {
     }
   };
 
-  // ✨ 테마 컬러
   const theme = {
-    bg: isDarkMode ? "bg-gradient-to-br from-[#02040A] to-[#110A1A]" : "bg-gradient-to-br from-[#F4F6F9] to-[#E5E9F0]",
-    chatBg: isDarkMode ? "bg-[#080808]/80" : "bg-[#FAFAFA]/90",
-    headerBg: isDarkMode ? "bg-black/50 backdrop-blur-2xl" : "bg-white/70 backdrop-blur-2xl",
-    border: isDarkMode ? "border-white/10" : "border-black/5",
-    textMain: isDarkMode ? "text-white" : "text-zinc-800",
+    bg: isDarkMode ? "bg-[#020205]" : "bg-[#F0F2F5]",
+    textMain: isDarkMode ? "text-white" : "text-black",
     textSub: isDarkMode ? "text-zinc-500" : "text-zinc-400",
-    // ✨ 팝업창(카드) 글래스 질감
-    card: isDarkMode ? "bg-white/[0.02] border border-white/10 backdrop-blur-3xl shadow-[0_20px_50px_rgba(0,0,0,0.5)]" : "bg-white/80 border border-black/5 backdrop-blur-3xl shadow-[0_20px_50px_rgba(0,0,0,0.1)]",
-    input: isDarkMode ? "bg-black/60 border border-white/10 shadow-inner" : "bg-white border border-black/10 shadow-sm",
-    bubbleOther: isDarkMode ? "bg-[#161722] border border-white/5 text-zinc-300" : "bg-white border border-black/5 text-zinc-700 shadow-sm",
-    bubbleMe: "bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/20",
+    card: isDarkMode ? "bg-black/40 border border-white/10 backdrop-blur-3xl shadow-[0_0_50px_rgba(0,0,0,0.8)]" : "bg-white/80 border border-black/5 backdrop-blur-3xl shadow-2xl",
+    input: isDarkMode ? "bg-white/5 border border-white/10" : "bg-black/5 border border-black/5",
   };
 
-  // ✨ 몽롱한 프리즘 배경 (CSS Only)
-  const PrismGlowBackground = () => (
+  // ✨ 은하수 & 젤리 배경 컴포넌트
+  const GalaxyBackground = () => (
     <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-      <div className={`absolute -top-20 -left-20 w-96 h-96 ${isDarkMode ? 'bg-purple-600/20' : 'bg-purple-400/30'} rounded-full mix-blend-screen filter blur-[120px] animate-blob`}></div>
-      <div className={`absolute top-1/3 -right-20 w-[30rem] h-[30rem] ${isDarkMode ? 'bg-cyan-600/20' : 'bg-cyan-400/30'} rounded-full mix-blend-screen filter blur-[150px] animate-blob animation-delay-2000`}></div>
-      <div className={`absolute -bottom-32 left-1/4 w-96 h-96 ${isDarkMode ? 'bg-emerald-500/10' : 'bg-emerald-400/20'} rounded-full mix-blend-screen filter blur-[120px] animate-blob animation-delay-4000`}></div>
+      <div className="absolute inset-0 opacity-30 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')]"></div>
+      {/* 젤리 형태의 유동적 구름들 */}
+      <div className={`absolute top-[-10%] left-[-10%] w-[60%] h-[60%] ${isDarkMode ? 'bg-purple-900/20' : 'bg-purple-200/40'} rounded-full blur-[120px] animate-pulse`}></div>
+      <div className={`absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] ${isDarkMode ? 'bg-blue-900/20' : 'bg-blue-200/40'} rounded-full blur-[120px] animate-pulse animation-delay-2000`}></div>
+      {/* 별빛 입자들 */}
+      {[...Array(50)].map((_, i) => (
+        <div key={i} className="absolute bg-white rounded-full animate-twinkle" 
+             style={{ 
+               top: `${Math.random() * 100}%`, 
+               left: `${Math.random() * 100}%`, 
+               width: `${Math.random() * 3}px`, 
+               height: `${Math.random() * 3}px`,
+               animationDelay: `${Math.random() * 5}s`
+             }}></div>
+      ))}
     </div>
   );
 
   if (!myName) return (
-    <div className={`h-screen ${theme.bg} flex flex-col items-center justify-center p-10 font-sans transition-colors duration-500 relative overflow-hidden`}>
-      <FontLink />
-      <PrismGlowBackground />
-      
-      {/* ✨ 팝업창 모드 */}
-      <div className={`${theme.card} p-12 w-full max-w-md rounded-[40px] flex flex-col items-center gap-10 z-10 animate-in fade-in zoom-in duration-700`}>
-          <div className="flex flex-col items-center">
-            {/* ✨ 완벽하게 복원된 프리즘 & 크롬 3D 텍스트 */}
-            <h1 ref={chromeTextRef} className="DOOLY_CHROME text-[5rem] font-black italic tracking-tighter uppercase select-none mb-1" data-text="DOOLY" style={{ fontFamily: "'Playfair Display', serif" }}>
-              DOOLY
-            </h1>
-            <button onClick={toggleTheme} className={`${theme.textSub} text-[10px] font-bold uppercase tracking-widest hover:text-indigo-400 transition-colors mt-2`}>
-              {isDarkMode ? "DAY MODE" : "NIGHT MODE"}
+    <div className={`h-screen ${theme.bg} flex items-center justify-center p-6 font-sans relative overflow-hidden transition-colors duration-700`}>
+      <GalaxyBackground />
+      <div className={`${theme.card} p-12 w-full max-w-[450px] rounded-[50px] flex flex-col items-center gap-10 z-10 animate-in zoom-in duration-1000`}>
+          <div className="flex flex-col items-center gap-2">
+            <h1 ref={chromeTextRef} className="PRISM_TEXT text-8xl font-black tracking-tighter uppercase italic select-none" data-text="DOOLY">DOOLY</h1>
+            <button onClick={toggleTheme} className="text-[10px] font-bold tracking-[0.2em] text-blue-500 uppercase hover:brightness-125 transition-all">
+                {isDarkMode ? "Switch to Day Mode" : "Switch to Night Mode"}
             </button>
           </div>
-
-          <form onSubmit={handleProfileSave} className="w-full flex flex-col items-center space-y-6">
-            <div className={`w-28 h-28 rounded-full ${theme.input} overflow-hidden flex items-center justify-center cursor-pointer hover:border-indigo-500 transition-all group`} onClick={() => profileInputRef.current.click()}>
-              {tempImg ? <img src={tempImg} className="w-full h-full object-cover" /> : <span className="text-zinc-500 text-[10px] font-bold tracking-widest group-hover:text-indigo-400">PHOTO +</span>}
+          <form onSubmit={handleProfileSave} className="w-full flex flex-col items-center gap-8">
+            <div className={`w-32 h-32 rounded-full ${theme.input} overflow-hidden flex items-center justify-center cursor-pointer border-2 border-transparent hover:border-blue-500 transition-all`} onClick={() => profileInputRef.current.click()}>
+              {tempImg ? <img src={tempImg} className="w-full h-full object-cover" /> : <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Photo +</span>}
             </div>
             <input type="file" ref={profileInputRef} onChange={handleProfileImgUpload} accept="image/*" className="hidden" />
-            <input value={tempName} onChange={(e) => setTempName(e.target.value)} placeholder="아이디 입력" className={`w-full ${theme.input} px-6 py-4 rounded-full ${theme.textMain} text-center focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-sm font-bold`} />
-            <button type="submit" className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white py-4 rounded-full font-black uppercase tracking-widest text-[12px] shadow-lg shadow-purple-500/20 active:scale-[0.98] transition-all">Start System</button>
+            <input value={tempName} onChange={(e) => setTempName(e.target.value)} placeholder="ENTER YOUR ID" className={`w-full ${theme.input} px-8 py-5 rounded-2xl ${theme.textMain} text-center focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm font-bold tracking-widest placeholder:text-zinc-600`} />
+            <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white py-5 rounded-2xl font-black uppercase tracking-[0.3em] text-[12px] shadow-2xl shadow-blue-500/40 transition-all active:scale-95">Start System</button>
           </form>
       </div>
 
-    {/* ✨ CSS 애니메이션 및 로고 스타일 */}
-    <style jsx global>{`
-      @keyframes blob {
-        0% { transform: translate(0px, 0px) scale(1); }
-        33% { transform: translate(30px, -50px) scale(1.1); }
-        66% { transform: translate(-20px, 20px) scale(0.9); }
-        100% { transform: translate(0px, 0px) scale(1); }
-      }
-      .animate-blob { animation: blob 10s infinite alternate ease-in-out; }
-      .animation-delay-2000 { animation-delay: 2s; }
-      .animation-delay-4000 { animation-delay: 4s; }
-      
-      /* ✨ 프리즘 + 크롬 + 3D 모션 통합 */
-      .DOOLY_CHROME {
-        background: linear-gradient(180deg, ${isDarkMode ? '#FFFFFF' : '#444'} 0%, ${isDarkMode ? '#888' : '#111'} 45%, ${isDarkMode ? '#444' : '#000'} 50%, ${isDarkMode ? '#CCC' : '#666'} 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        position: relative;
-        transform-style: preserve-3d;
-        transform: perspective(500px) rotateX(var(--rotateX, 0deg)) rotateY(var(--rotateY, 0deg));
-      }
-      /* 깊이감 그림자 */
-      .DOOLY_CHROME::before {
-        content: attr(data-text);
-        position: absolute;
-        inset: 0;
-        z-index: -2;
-        text-shadow: 0px 10px 20px rgba(0,0,0,${isDarkMode ? '0.6' : '0.2'}), 0px 2px 2px rgba(0,0,0,0.4);
-        -webkit-text-fill-color: transparent;
-      }
-      /* 프리즘 무지개 오버레이 (보라, 파랑, 연녹) */
-      .DOOLY_CHROME::after {
-        content: attr(data-text);
-        position: absolute;
-        inset: 0;
-        background: linear-gradient(120deg, rgba(148,0,211,0.8), rgba(0,191,255,0.8), rgba(50,205,50,0.6));
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        mix-blend-mode: color-dodge; /* 색감을 영롱하게 섞어줌 */
-        opacity: ${isDarkMode ? '0.4' : '0.6'};
-        z-index: -1;
-      }
-    `}</style>
+      <style jsx global>{`
+        @font-face { font-family: 'Gothic'; src: local('Pretendard-Bold'), local('Inter-Bold'), sans-serif; }
+        * { font-family: 'Gothic', sans-serif; }
+        @keyframes twinkle { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; transform: scale(1.2); } }
+        .animate-twinkle { animation: twinkle 3s infinite ease-in-out; }
+        
+        .PRISM_TEXT {
+          position: relative;
+          background: linear-gradient(180deg, #fff 0%, #aaa 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          transform-style: preserve-3d;
+          transform: perspective(1000px) rotateX(var(--rotateX, 0deg)) rotateY(var(--rotateY, 0deg));
+          filter: drop-shadow(0 10px 20px rgba(0,0,0,0.5));
+        }
+        .PRISM_TEXT::after {
+          content: attr(data-text);
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(120deg, #ff00ff, #00ffff, #ffff00, #ff00ff);
+          background-size: 300% auto;
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          mix-blend-mode: ${isDarkMode ? 'color-dodge' : 'overlay'};
+          opacity: 0.8;
+          animation: prismFlow 4s linear infinite;
+          z-index: 1;
+        }
+        @keyframes prismFlow { 0% { background-position: 0% center; } 100% { background-position: 300% center; } }
+      `}</style>
     </div>
   );
 
+  // 리스트 및 채팅창은 팝업 모드와 고딕 폰트 테마를 유지하며 기능 수행
   if (!currentRoom) return (
-    <div className={`h-screen ${theme.bg} flex flex-col items-center justify-center p-5 text-center font-sans transition-colors duration-500 relative overflow-hidden`}>
-      <FontLink />
-      <PrismGlowBackground />
-      
-      {/* ✨ 팝업창 모드 */}
-      <div className={`${theme.card} p-10 w-full max-w-md rounded-[40px] flex flex-col items-center gap-8 z-10 animate-in fade-in zoom-in duration-500`}>
-          <div className="flex flex-col items-center">
-            {/* 상단 텍스트에도 동일한 효과 작게 적용 */}
-            <h1 ref={chromeTextRef} className="DOOLY_CHROME text-[2.5rem] font-black italic tracking-tighter uppercase select-none mb-4" data-text="DOOLY" style={{ fontFamily: "'Playfair Display', serif" }}>DOOLY</h1>
-            <div className="relative mb-3">
-              <img src={myProfileImg} className="w-20 h-20 rounded-full border border-white/10 object-cover shadow-xl" />
-            </div>
-            <p className={`${theme.textMain} font-black text-xl`}>{myName}</p>
-            <div className="flex gap-4 mt-3">
-               <button onClick={toggleTheme} className={`${theme.textSub} text-[9px] font-bold uppercase tracking-widest hover:text-indigo-400 transition-all`}>{isDarkMode ? "Day Mode" : "Night Mode"}</button>
-               <button onClick={() => { localStorage.clear(); location.reload(); }} className="text-zinc-600 text-[9px] font-bold uppercase tracking-widest hover:text-red-500 transition-colors">Logout</button>
+    <div className={`h-screen ${theme.bg} flex items-center justify-center p-6 relative overflow-hidden transition-colors duration-700`}>
+      <GalaxyBackground />
+      <div className={`${theme.card} p-10 w-full max-w-[450px] rounded-[40px] z-10 animate-in fade-in duration-500`}>
+          <div className="flex flex-col items-center mb-10">
+            <img src={myProfileImg} className="w-24 h-24 rounded-full border-2 border-blue-500/20 mb-4 object-cover shadow-2xl" />
+            <h2 className={`text-2xl font-black ${theme.textMain} tracking-tighter uppercase`}>{myName}</h2>
+            <div className="flex gap-6 mt-4">
+               <button onClick={toggleTheme} className="text-[9px] font-bold text-blue-500 uppercase tracking-widest">{isDarkMode ? "Day Mode" : "Night Mode"}</button>
+               <button onClick={() => { localStorage.clear(); location.reload(); }} className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest">Logout</button>
             </div>
           </div>
-
-          <div className="w-full flex flex-col h-[40vh]">
-            <input onKeyDown={(e) => e.key === 'Enter' && joinRoom(e.currentTarget.value)} placeholder="접속할 노드 ID 검색 (Enter)" className={`w-full ${theme.input} px-6 py-4 rounded-full ${theme.textMain} text-center mb-6 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-sm font-bold`} />
-            
-            <h2 className={`text-[10px] font-black text-left text-indigo-400 tracking-widest uppercase mb-3 pl-4`}>My Nodes</h2>
-            
-            {myRooms.length === 0 && (
-              <div className={`flex-1 flex items-center justify-center border border-dashed ${isDarkMode ? 'border-white/10' : 'border-black/10'} rounded-3xl`}>
-                <span className={`${theme.textSub} text-[11px] font-bold`}>초대받은 노드 ID를 검색하세요.</span>
-              </div>
-            )}
-
-            <div className="flex-1 overflow-y-auto space-y-3 scrollbar-hide pr-2">
-              {myRooms.map((roomName) => (
-                <div key={roomName} className="relative group">
-                  <button onClick={() => joinRoom(roomName)} className={`w-full ${theme.input} px-6 py-4 rounded-[24px] flex items-center justify-between hover:bg-indigo-600/10 hover:border-indigo-500/30 transition-all active:scale-[0.98]`}>
-                    <span className={`font-black ${theme.textMain} text-sm tracking-tight`}>{roomName}</span>
-                    <span className="text-[9px] text-indigo-400 font-bold uppercase tracking-widest">Connect</span>
+          <div className="space-y-6">
+            <input onKeyDown={(e) => e.key === 'Enter' && joinRoom(e.currentTarget.value)} placeholder="SEARCH OR CREATE NODE" className={`w-full ${theme.input} px-6 py-4 rounded-xl ${theme.textMain} text-center focus:outline-none focus:ring-1 focus:ring-blue-500 text-xs font-bold tracking-widest`} />
+            <div className="max-h-[30vh] overflow-y-auto space-y-3 pr-2 scrollbar-hide">
+              {myRooms.map((room) => (
+                <div key={room} className="relative group">
+                  <button onClick={() => joinRoom(room)} className={`w-full ${theme.input} p-4 rounded-xl flex items-center justify-between hover:bg-blue-600/10 transition-all`}>
+                    <span className={`font-black ${theme.textMain} text-sm`}>{room}</span>
+                    <span className="text-[9px] text-blue-500 font-bold uppercase">Connect</span>
                   </button>
-                  <button onClick={(e) => leaveRoom(e, roomName)} className="absolute -right-2 -top-2 w-7 h-7 bg-red-500/20 text-red-500 rounded-full border border-red-500/30 text-[10px] opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center backdrop-blur-sm">✕</button>
+                  <button onClick={(e) => leaveRoom(e, room)} className="absolute -right-2 -top-2 w-6 h-6 bg-red-500/20 text-red-500 rounded-full text-[10px] opacity-0 group-hover:opacity-100 transition-all">✕</button>
                 </div>
               ))}
             </div>
           </div>
       </div>
-      <style jsx global>{`
-        .DOOLY_CHROME {
-          background: linear-gradient(180deg, ${isDarkMode ? '#FFFFFF' : '#444'} 0%, ${isDarkMode ? '#888' : '#111'} 45%, ${isDarkMode ? '#444' : '#000'} 50%, ${isDarkMode ? '#CCC' : '#666'} 100%);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          position: relative;
-          transform-style: preserve-3d;
-          transform: perspective(500px) rotateX(var(--rotateX, 0deg)) rotateY(var(--rotateY, 0deg));
-        }
-        .DOOLY_CHROME::before {
-          content: attr(data-text);
-          position: absolute;
-          inset: 0;
-          z-index: -2;
-          text-shadow: 0px 5px 10px rgba(0,0,0,${isDarkMode ? '0.6' : '0.2'});
-          -webkit-text-fill-color: transparent;
-        }
-        .DOOLY_CHROME::after {
-          content: attr(data-text);
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(120deg, rgba(148,0,211,0.8), rgba(0,191,255,0.8), rgba(50,205,50,0.6));
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          mix-blend-mode: color-dodge; 
-          opacity: ${isDarkMode ? '0.4' : '0.6'};
-          z-index: -1;
-        }
-      `}</style>
     </div>
   );
 
   return (
-    <div className={`flex flex-col h-screen ${theme.chatBg} ${theme.textMain} overflow-hidden font-sans transition-colors duration-500 relative`}>
-      <header className={`px-6 py-4 border-b ${theme.border} flex justify-between items-center ${theme.headerBg} shrink-0 z-10`}>
-        <div className="flex items-center gap-5">
-          <button onClick={() => setCurrentRoom("")} className={`${theme.textSub} text-[10px] font-bold uppercase hover:text-indigo-400 transition-colors`}>◀ Exit</button>
-          <div className="flex flex-col text-left gap-0.5">
-            <h1 className="text-sm font-black italic text-indigo-400 uppercase leading-none tracking-tight">{currentRoom}</h1>
-            <div className="flex items-center gap-2 mt-0.5">
-              <span className={`text-[10px] ${theme.textMain} font-bold opacity-80`}>{myName}</span>
-              <button onClick={() => { setTempName(myName); setTempImg(myProfileImg); setIsEditingProfile(!isEditingProfile); }} className={`text-[9px] ${theme.textSub} font-bold uppercase underline hover:text-indigo-400`}>Edit</button>
-            </div>
-          </div>
+    <div className={`flex flex-col h-screen ${isDarkMode ? 'bg-[#050505]' : 'bg-[#F9F9F9]'} transition-colors`}>
+      <header className={`px-8 py-5 border-b ${theme.border} flex justify-between items-center backdrop-blur-md z-10`}>
+        <div className="flex items-center gap-6">
+          <button onClick={() => setCurrentRoom("")} className="text-blue-500 text-[10px] font-black uppercase tracking-widest">◀ Exit</button>
+          <h1 className="text-sm font-black text-blue-500 uppercase tracking-tighter italic">{currentRoom}</h1>
         </div>
         <div className="flex items-center gap-4">
-          <button onClick={toggleTheme} className={`text-[9px] font-black border ${theme.border} ${isDarkMode ? 'bg-white/5' : 'bg-black/5'} ${theme.textSub} px-3 py-2 rounded-full hover:bg-indigo-500 hover:text-white transition-all`}>
-            {isDarkMode ? "DAY" : "NIGHT"}
-          </button>
-          <img src={myProfileImg} className={`w-9 h-9 rounded-full border ${theme.border} object-cover shadow-sm`} />
+          <button onClick={toggleTheme} className={`text-[9px] font-bold border ${theme.border} px-3 py-2 rounded-full ${theme.textSub}`}>{isDarkMode ? "DAY" : "NIGHT"}</button>
+          <img src={myProfileImg} className="w-9 h-9 rounded-full object-cover border ${theme.border}" />
         </div>
       </header>
 
-      {isEditingProfile && (
-        <div className={`p-6 ${theme.headerBg} border-b ${theme.border} backdrop-blur-2xl animate-in slide-in-from-top duration-300 z-10`}>
-          <form onSubmit={handleProfileSave} className="flex items-center gap-4 max-w-lg mx-auto">
-            <div className="relative w-12 h-12 rounded-full bg-black shrink-0 overflow-hidden cursor-pointer border border-zinc-700 group" onClick={() => profileInputRef.current.click()}>
-              <img src={tempImg || myProfileImg} className="w-full h-full object-cover opacity-60 group-hover:opacity-30 transition-all" />
-              <span className="absolute inset-0 flex items-center justify-center text-[9px] font-black uppercase text-white drop-shadow-md">Edit</span>
-            </div>
-            <input type="file" ref={profileInputRef} onChange={handleProfileImgUpload} accept="image/*" className="hidden" />
-            <input value={tempName} onChange={(e) => setTempName(e.target.value)} className={`flex-1 ${theme.input} px-4 py-3 rounded-full text-xs ${theme.textMain} focus:outline-none focus:ring-2 focus:ring-indigo-500/50`} placeholder="새 아이디" />
-            <button type="submit" className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white px-5 py-3 rounded-full text-[10px] font-black uppercase shadow-lg active:scale-95 transition-all">Save</button>
-            <button type="button" onClick={() => setIsEditingProfile(false)} className={`${theme.textSub} text-[10px] uppercase font-bold px-2 hover:text-white`}>Cancel</button>
-          </form>
-        </div>
-      )}
-
-      <div ref={scrollRef} onScroll={(e) => { isUserAtBottom.current = e.currentTarget.scrollHeight - e.currentTarget.scrollTop <= e.currentTarget.clientHeight + 150; }} className="flex-1 overflow-y-auto p-6 space-y-8 scrollbar-hide z-0">
+      <div ref={scrollRef} onScroll={(e) => { isUserAtBottom.current = e.currentTarget.scrollHeight - e.currentTarget.scrollTop <= e.currentTarget.clientHeight + 150; }} className="flex-1 overflow-y-auto p-8 space-y-8 scrollbar-hide">
         {messages.map((m) => (
-          m.type === "system" ? (
-            <div key={m.id} className="flex justify-center">
-              <span className={`${isDarkMode ? 'text-zinc-500 bg-white/5' : 'text-zinc-500 bg-black/5'} text-[9px] font-bold uppercase tracking-widest px-4 py-1.5 rounded-full border ${theme.border}`}>{m.text}</span>
-            </div>
-          ) : (
-            <div key={m.id} className={`flex gap-3 ${m.userName === myName ? 'flex-row-reverse' : ''}`}>
-              <img src={m.userPhoto} className={`w-8 h-8 rounded-full mt-1 shrink-0 border ${theme.border} object-cover shadow-sm`} />
-              <div className={`flex flex-col ${m.userName === myName ? 'items-end' : 'items-start'} max-w-[75%]`}>
-                <span className={`${theme.textSub} text-[9px] font-bold mb-1.5 px-1 uppercase opacity-80`}>{m.userName}</span>
-                <div className={`group relative p-4 rounded-[20px] text-[14px] leading-relaxed ${m.userName === myName ? theme.bubbleMe + ' rounded-tr-[4px]' : `${theme.bubbleOther} rounded-tl-[4px]`}`}>
-                  {m.image && <img src={m.image} className="w-full rounded-xl mb-3 shadow-md border border-white/10" />}
-                  {m.text && <p className="whitespace-pre-wrap break-words">{m.text}</p>}
-                </div>
+          <div key={m.id} className={`flex gap-4 ${m.userName === myName ? 'flex-row-reverse' : ''}`}>
+            <img src={m.userPhoto} className="w-9 h-9 rounded-full shrink-0 object-cover border ${theme.border}" />
+            <div className={`flex flex-col ${m.userName === myName ? 'items-end' : 'items-start'} max-w-[70%]`}>
+              <span className="text-[9px] font-bold text-zinc-500 mb-2 uppercase tracking-widest">{m.userName}</span>
+              <div className={`p-5 rounded-2xl text-[14px] leading-relaxed shadow-sm ${m.userName === myName ? 'bg-blue-600 text-white rounded-tr-none' : `${theme.card} rounded-tl-none ${theme.textMain}`}`}>
+                {m.image && <img src={m.image} className="w-full rounded-xl mb-4 border border-white/10" />}
+                <p>{m.text}</p>
               </div>
             </div>
-          )
+          </div>
         ))}
         <div ref={messagesEndRef} />
       </div>
 
-      <footer className={`px-6 py-5 ${theme.headerBg} border-t ${theme.border} shrink-0 z-10`}>
-        <form onSubmit={sendMessage} className={`flex items-center gap-3 max-w-5xl mx-auto ${theme.input} p-1.5 rounded-full focus-within:ring-2 focus-within:ring-indigo-500/50 transition-all`}>
-          <button type="button" onClick={() => fileInputRef.current.click()} className={`w-10 h-10 flex items-center justify-center rounded-full ${isDarkMode ? 'text-zinc-400 hover:bg-white/10' : 'text-zinc-500 hover:bg-black/5'} transition-all`}>
-            <span className="text-xl font-light">+</span>
-          </button>
+      <footer className="p-6">
+        <form onSubmit={sendMessage} className={`max-w-4xl mx-auto flex items-center gap-3 ${theme.input} p-2 rounded-2xl focus-within:ring-1 focus-within:ring-blue-500 transition-all`}>
+          <button type="button" onClick={() => fileInputRef.current.click()} className="w-11 h-11 flex items-center justify-center rounded-xl text-zinc-500 hover:bg-blue-500 hover:text-white transition-all">+</button>
           <input type="file" ref={fileInputRef} onChange={(e) => { const f = e.target.files[0]; if(f) { const r = new FileReader(); r.onloadend = () => sendMessage(null, r.result); r.readAsDataURL(f); } }} accept="image/*" className="hidden" />
-          <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Type a message..." className={`flex-1 bg-transparent px-2 py-2 text-sm ${theme.textMain} focus:outline-none placeholder:text-zinc-500`} />
-          <button type="submit" className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-6 py-3 rounded-full font-black text-[11px] uppercase tracking-widest shadow-lg shadow-purple-500/20 active:scale-95 transition-all">Send</button>
+          <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Type a message..." className={`flex-1 bg-transparent px-2 py-3 text-sm ${theme.textMain} focus:outline-none font-bold`} />
+          <button type="submit" className="bg-blue-600 text-white px-8 py-3 rounded-xl font-black text-[11px] uppercase tracking-widest shadow-xl shadow-blue-500/20 active:scale-95 transition-all">Send</button>
         </form>
       </footer>
     </div>
