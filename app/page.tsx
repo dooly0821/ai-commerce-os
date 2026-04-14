@@ -15,12 +15,12 @@ const firebaseConfig = {
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);
 
-// 하이엔드 Serif 폰트 로드
+// ✨ Google Fonts: 하이엔드 Serif 폰트
 const FontLink = () => (
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@1,900&display=swap" rel="stylesheet" />
 );
 
-export default function AetherOS_PrismGlow_Refined() {
+export default function AetherOS_PrismChrome_Popup() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [currentRoom, setCurrentRoom] = useState("");
@@ -38,6 +38,7 @@ export default function AetherOS_PrismGlow_Refined() {
   const fileInputRef = useRef(null); 
   const profileInputRef = useRef(null);
   const isUserAtBottom = useRef(true); 
+  const chromeTextRef = useRef(null);
 
   useEffect(() => {
     const savedName = localStorage.getItem("aether-name");
@@ -49,7 +50,25 @@ export default function AetherOS_PrismGlow_Refined() {
     if (savedImg) { setMyProfileImg(savedImg); setTempImg(savedImg); }
     if (savedTheme !== null) setIsDarkMode(savedTheme === "true");
     setMyRooms(savedRooms);
-  }, []);
+
+    // ✨ 마우스 모션: 팝업창 중앙의 크롬 텍스트를 3D로 움직이게 합니다.
+    const handleMouseMove = (e) => {
+        if (!currentRoom) { 
+            const text = chromeTextRef.current;
+            if (text) {
+                const rect = text.getBoundingClientRect();
+                const textCenterX = rect.left + rect.width / 2;
+                const textCenterY = rect.top + rect.height / 2;
+                const rotateX = (e.clientY - textCenterY) * -0.05; 
+                const rotateY = (e.clientX - textCenterX) * 0.05;
+                text.style.setProperty('--rotateX', `${rotateX}deg`);
+                text.style.setProperty('--rotateY', `${rotateY}deg`);
+            }
+        }
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, [currentRoom]);
 
   const toggleTheme = () => {
     const newMode = !isDarkMode;
@@ -152,29 +171,27 @@ export default function AetherOS_PrismGlow_Refined() {
     }
   };
 
-  // ✨ 테마 컬러: 레퍼런스 이미지처럼 매우 깊고 어두운 톤 베이스
+  // ✨ 테마 컬러
   const theme = {
-    bg: isDarkMode ? "bg-[#09090E]" : "bg-[#F3F4F6]",
-    chatBg: isDarkMode ? "bg-[#0B0C10]" : "bg-[#FAFAFA]",
-    headerBg: isDarkMode ? "bg-black/40 backdrop-blur-2xl" : "bg-white/60 backdrop-blur-2xl",
-    border: isDarkMode ? "border-white/5" : "border-black/5",
+    bg: isDarkMode ? "bg-gradient-to-br from-[#02040A] to-[#110A1A]" : "bg-gradient-to-br from-[#F4F6F9] to-[#E5E9F0]",
+    chatBg: isDarkMode ? "bg-[#080808]/80" : "bg-[#FAFAFA]/90",
+    headerBg: isDarkMode ? "bg-black/50 backdrop-blur-2xl" : "bg-white/70 backdrop-blur-2xl",
+    border: isDarkMode ? "border-white/10" : "border-black/5",
     textMain: isDarkMode ? "text-white" : "text-zinc-800",
     textSub: isDarkMode ? "text-zinc-500" : "text-zinc-400",
-    card: isDarkMode ? "bg-[#161722]/60 border border-white/5 backdrop-blur-2xl shadow-2xl" : "bg-white/80 border border-black/5 backdrop-blur-2xl shadow-xl",
-    input: isDarkMode ? "bg-black/50 border border-white/5" : "bg-zinc-100/50 border border-black/5",
-    bubbleOther: isDarkMode ? "bg-[#1E1F2A] border border-white/5 text-zinc-300" : "bg-white border border-black/5 text-zinc-700 shadow-sm",
-    bubbleMe: "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/20",
+    // ✨ 팝업창(카드) 글래스 질감
+    card: isDarkMode ? "bg-white/[0.02] border border-white/10 backdrop-blur-3xl shadow-[0_20px_50px_rgba(0,0,0,0.5)]" : "bg-white/80 border border-black/5 backdrop-blur-3xl shadow-[0_20px_50px_rgba(0,0,0,0.1)]",
+    input: isDarkMode ? "bg-black/60 border border-white/10 shadow-inner" : "bg-white border border-black/10 shadow-sm",
+    bubbleOther: isDarkMode ? "bg-[#161722] border border-white/5 text-zinc-300" : "bg-white border border-black/5 text-zinc-700 shadow-sm",
+    bubbleMe: "bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/20",
   };
 
-  // ✨ CSS 기반 몽글몽글한 프리즘 글로우 배경 (가볍고 예쁨!)
+  // ✨ 몽롱한 프리즘 배경 (CSS Only)
   const PrismGlowBackground = () => (
     <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-      {/* 보라색 큰 구름 */}
-      <div className={`absolute -top-20 -left-20 w-96 h-96 ${isDarkMode ? 'bg-purple-600/30' : 'bg-purple-300/30'} rounded-full mix-blend-screen filter blur-[100px] opacity-70 animate-blob`}></div>
-      {/* 파란색 구름 */}
-      <div className={`absolute top-1/4 -right-20 w-80 h-80 ${isDarkMode ? 'bg-blue-600/30' : 'bg-blue-300/30'} rounded-full mix-blend-screen filter blur-[120px] opacity-60 animate-blob animation-delay-2000`}></div>
-      {/* 초록/민트 구름 */}
-      <div className={`absolute -bottom-32 left-1/3 w-96 h-96 ${isDarkMode ? 'bg-emerald-500/20' : 'bg-emerald-300/30'} rounded-full mix-blend-screen filter blur-[100px] opacity-60 animate-blob animation-delay-4000`}></div>
+      <div className={`absolute -top-20 -left-20 w-96 h-96 ${isDarkMode ? 'bg-purple-600/20' : 'bg-purple-400/30'} rounded-full mix-blend-screen filter blur-[120px] animate-blob`}></div>
+      <div className={`absolute top-1/3 -right-20 w-[30rem] h-[30rem] ${isDarkMode ? 'bg-cyan-600/20' : 'bg-cyan-400/30'} rounded-full mix-blend-screen filter blur-[150px] animate-blob animation-delay-2000`}></div>
+      <div className={`absolute -bottom-32 left-1/4 w-96 h-96 ${isDarkMode ? 'bg-emerald-500/10' : 'bg-emerald-400/20'} rounded-full mix-blend-screen filter blur-[120px] animate-blob animation-delay-4000`}></div>
     </div>
   );
 
@@ -183,26 +200,25 @@ export default function AetherOS_PrismGlow_Refined() {
       <FontLink />
       <PrismGlowBackground />
       
-      {/* ✨ 중앙 팝업창 모드 완벽 복원 */}
+      {/* ✨ 팝업창 모드 */}
       <div className={`${theme.card} p-12 w-full max-w-md rounded-[40px] flex flex-col items-center gap-10 z-10 animate-in fade-in zoom-in duration-700`}>
-          
           <div className="flex flex-col items-center">
-            {/* ✨ 레퍼런스 스타일의 금속 질감 DOOLY 로고 */}
-            <h1 className="DOOLY_LOGO text-[6rem] font-black italic tracking-tighter uppercase select-none mb-2" style={{ fontFamily: "'Playfair Display', serif" }}>
+            {/* ✨ 완벽하게 복원된 프리즘 & 크롬 3D 텍스트 */}
+            <h1 ref={chromeTextRef} className="DOOLY_CHROME text-[5rem] font-black italic tracking-tighter uppercase select-none mb-1" data-text="DOOLY" style={{ fontFamily: "'Playfair Display', serif" }}>
               DOOLY
             </h1>
-            <button onClick={toggleTheme} className={`${theme.textSub} text-[9px] font-bold uppercase tracking-widest hover:text-blue-500 transition-colors`}>
+            <button onClick={toggleTheme} className={`${theme.textSub} text-[10px] font-bold uppercase tracking-widest hover:text-indigo-400 transition-colors mt-2`}>
               {isDarkMode ? "DAY MODE" : "NIGHT MODE"}
             </button>
           </div>
 
           <form onSubmit={handleProfileSave} className="w-full flex flex-col items-center space-y-6">
-            <div className={`w-28 h-28 rounded-full ${theme.input} overflow-hidden flex items-center justify-center cursor-pointer hover:border-blue-500 transition-all group`} onClick={() => profileInputRef.current.click()}>
-              {tempImg ? <img src={tempImg} className="w-full h-full object-cover" /> : <span className="text-zinc-500 text-[10px] font-bold tracking-widest group-hover:text-blue-400">PHOTO +</span>}
+            <div className={`w-28 h-28 rounded-full ${theme.input} overflow-hidden flex items-center justify-center cursor-pointer hover:border-indigo-500 transition-all group`} onClick={() => profileInputRef.current.click()}>
+              {tempImg ? <img src={tempImg} className="w-full h-full object-cover" /> : <span className="text-zinc-500 text-[10px] font-bold tracking-widest group-hover:text-indigo-400">PHOTO +</span>}
             </div>
             <input type="file" ref={profileInputRef} onChange={handleProfileImgUpload} accept="image/*" className="hidden" />
-            <input value={tempName} onChange={(e) => setTempName(e.target.value)} placeholder="아이디 입력" className={`w-full ${theme.input} px-6 py-4 rounded-full ${theme.textMain} text-center focus:outline-none focus:ring-1 focus:ring-blue-500/50 text-sm font-bold placeholder:font-normal`} />
-            <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white py-4 rounded-full font-black uppercase tracking-widest text-[13px] shadow-lg shadow-blue-500/20 active:scale-[0.98] transition-all">Start System</button>
+            <input value={tempName} onChange={(e) => setTempName(e.target.value)} placeholder="아이디 입력" className={`w-full ${theme.input} px-6 py-4 rounded-full ${theme.textMain} text-center focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-sm font-bold`} />
+            <button type="submit" className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white py-4 rounded-full font-black uppercase tracking-widest text-[12px] shadow-lg shadow-purple-500/20 active:scale-[0.98] transition-all">Start System</button>
           </form>
       </div>
 
@@ -214,32 +230,38 @@ export default function AetherOS_PrismGlow_Refined() {
         66% { transform: translate(-20px, 20px) scale(0.9); }
         100% { transform: translate(0px, 0px) scale(1); }
       }
-      .animate-blob {
-        animation: blob 10s infinite alternate ease-in-out;
-      }
+      .animate-blob { animation: blob 10s infinite alternate ease-in-out; }
       .animation-delay-2000 { animation-delay: 2s; }
       .animation-delay-4000 { animation-delay: 4s; }
       
-      /* ✨ 이미지 c499de 스타일의 DOOLY 로고 */
-      .DOOLY_LOGO {
-        background: linear-gradient(180deg, ${isDarkMode ? '#FFFFFF' : '#333333'} 0%, ${isDarkMode ? '#888888' : '#111111'} 100%);
+      /* ✨ 프리즘 + 크롬 + 3D 모션 통합 */
+      .DOOLY_CHROME {
+        background: linear-gradient(180deg, ${isDarkMode ? '#FFFFFF' : '#444'} 0%, ${isDarkMode ? '#888' : '#111'} 45%, ${isDarkMode ? '#444' : '#000'} 50%, ${isDarkMode ? '#CCC' : '#666'} 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        text-shadow: 
-          0px 4px 10px rgba(0,0,0,${isDarkMode ? '0.5' : '0.2'}),
-          0px -1px 1px rgba(255,255,255,${isDarkMode ? '0.3' : '0.8'});
         position: relative;
+        transform-style: preserve-3d;
+        transform: perspective(500px) rotateX(var(--rotateX, 0deg)) rotateY(var(--rotateY, 0deg));
       }
-      /* 은은한 프리즘 아우라 */
-      .DOOLY_LOGO::after {
-        content: "DOOLY";
+      /* 깊이감 그림자 */
+      .DOOLY_CHROME::before {
+        content: attr(data-text);
         position: absolute;
         inset: 0;
-        background: linear-gradient(90deg, rgba(148,0,211,0.5), rgba(0,191,255,0.5), rgba(50,205,50,0.5));
+        z-index: -2;
+        text-shadow: 0px 10px 20px rgba(0,0,0,${isDarkMode ? '0.6' : '0.2'}), 0px 2px 2px rgba(0,0,0,0.4);
+        -webkit-text-fill-color: transparent;
+      }
+      /* 프리즘 무지개 오버레이 (보라, 파랑, 연녹) */
+      .DOOLY_CHROME::after {
+        content: attr(data-text);
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(120deg, rgba(148,0,211,0.8), rgba(0,191,255,0.8), rgba(50,205,50,0.6));
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        filter: blur(8px);
-        opacity: ${isDarkMode ? '0.6' : '0.2'};
+        mix-blend-mode: color-dodge; /* 색감을 영롱하게 섞어줌 */
+        opacity: ${isDarkMode ? '0.4' : '0.6'};
         z-index: -1;
       }
     `}</style>
@@ -248,26 +270,28 @@ export default function AetherOS_PrismGlow_Refined() {
 
   if (!currentRoom) return (
     <div className={`h-screen ${theme.bg} flex flex-col items-center justify-center p-5 text-center font-sans transition-colors duration-500 relative overflow-hidden`}>
+      <FontLink />
       <PrismGlowBackground />
       
-      {/* ✨ 중앙 팝업창 모드 완벽 복원 */}
+      {/* ✨ 팝업창 모드 */}
       <div className={`${theme.card} p-10 w-full max-w-md rounded-[40px] flex flex-col items-center gap-8 z-10 animate-in fade-in zoom-in duration-500`}>
           <div className="flex flex-col items-center">
-            <div className="relative mb-4">
-              <img src={myProfileImg} className="w-24 h-24 rounded-full border border-white/10 object-cover shadow-2xl" />
-              <div className="absolute inset-0 rounded-full ring-2 ring-blue-500/30"></div>
+            {/* 상단 텍스트에도 동일한 효과 작게 적용 */}
+            <h1 ref={chromeTextRef} className="DOOLY_CHROME text-[2.5rem] font-black italic tracking-tighter uppercase select-none mb-4" data-text="DOOLY" style={{ fontFamily: "'Playfair Display', serif" }}>DOOLY</h1>
+            <div className="relative mb-3">
+              <img src={myProfileImg} className="w-20 h-20 rounded-full border border-white/10 object-cover shadow-xl" />
             </div>
-            <p className={`${theme.textMain} font-black text-2xl`}>{myName}</p>
+            <p className={`${theme.textMain} font-black text-xl`}>{myName}</p>
             <div className="flex gap-4 mt-3">
-               <button onClick={toggleTheme} className={`${theme.textSub} text-[9px] font-bold uppercase tracking-widest hover:text-blue-400 transition-all`}>{isDarkMode ? "Day Mode" : "Night Mode"}</button>
+               <button onClick={toggleTheme} className={`${theme.textSub} text-[9px] font-bold uppercase tracking-widest hover:text-indigo-400 transition-all`}>{isDarkMode ? "Day Mode" : "Night Mode"}</button>
                <button onClick={() => { localStorage.clear(); location.reload(); }} className="text-zinc-600 text-[9px] font-bold uppercase tracking-widest hover:text-red-500 transition-colors">Logout</button>
             </div>
           </div>
 
           <div className="w-full flex flex-col h-[40vh]">
-            <input onKeyDown={(e) => e.key === 'Enter' && joinRoom(e.currentTarget.value)} placeholder="접속할 노드 ID 검색 (Enter)" className={`w-full ${theme.input} px-6 py-4 rounded-full ${theme.textMain} text-center mb-6 focus:outline-none focus:ring-1 focus:ring-blue-500/50 text-sm font-bold placeholder:font-normal`} />
+            <input onKeyDown={(e) => e.key === 'Enter' && joinRoom(e.currentTarget.value)} placeholder="접속할 노드 ID 검색 (Enter)" className={`w-full ${theme.input} px-6 py-4 rounded-full ${theme.textMain} text-center mb-6 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-sm font-bold`} />
             
-            <h2 className={`text-[10px] font-black text-left ${theme.textSub} tracking-widest uppercase mb-3 pl-4`}>My Nodes</h2>
+            <h2 className={`text-[10px] font-black text-left text-indigo-400 tracking-widest uppercase mb-3 pl-4`}>My Nodes</h2>
             
             {myRooms.length === 0 && (
               <div className={`flex-1 flex items-center justify-center border border-dashed ${isDarkMode ? 'border-white/10' : 'border-black/10'} rounded-3xl`}>
@@ -278,9 +302,9 @@ export default function AetherOS_PrismGlow_Refined() {
             <div className="flex-1 overflow-y-auto space-y-3 scrollbar-hide pr-2">
               {myRooms.map((roomName) => (
                 <div key={roomName} className="relative group">
-                  <button onClick={() => joinRoom(roomName)} className={`w-full ${theme.input} px-6 py-4 rounded-[24px] flex items-center justify-between hover:bg-blue-600/10 hover:border-blue-500/30 transition-all active:scale-[0.98]`}>
+                  <button onClick={() => joinRoom(roomName)} className={`w-full ${theme.input} px-6 py-4 rounded-[24px] flex items-center justify-between hover:bg-indigo-600/10 hover:border-indigo-500/30 transition-all active:scale-[0.98]`}>
                     <span className={`font-black ${theme.textMain} text-sm tracking-tight`}>{roomName}</span>
-                    <span className="text-[9px] text-blue-500 font-bold uppercase tracking-widest">Connect</span>
+                    <span className="text-[9px] text-indigo-400 font-bold uppercase tracking-widest">Connect</span>
                   </button>
                   <button onClick={(e) => leaveRoom(e, roomName)} className="absolute -right-2 -top-2 w-7 h-7 bg-red-500/20 text-red-500 rounded-full border border-red-500/30 text-[10px] opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center backdrop-blur-sm">✕</button>
                 </div>
@@ -288,25 +312,53 @@ export default function AetherOS_PrismGlow_Refined() {
             </div>
           </div>
       </div>
+      <style jsx global>{`
+        .DOOLY_CHROME {
+          background: linear-gradient(180deg, ${isDarkMode ? '#FFFFFF' : '#444'} 0%, ${isDarkMode ? '#888' : '#111'} 45%, ${isDarkMode ? '#444' : '#000'} 50%, ${isDarkMode ? '#CCC' : '#666'} 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          position: relative;
+          transform-style: preserve-3d;
+          transform: perspective(500px) rotateX(var(--rotateX, 0deg)) rotateY(var(--rotateY, 0deg));
+        }
+        .DOOLY_CHROME::before {
+          content: attr(data-text);
+          position: absolute;
+          inset: 0;
+          z-index: -2;
+          text-shadow: 0px 5px 10px rgba(0,0,0,${isDarkMode ? '0.6' : '0.2'});
+          -webkit-text-fill-color: transparent;
+        }
+        .DOOLY_CHROME::after {
+          content: attr(data-text);
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(120deg, rgba(148,0,211,0.8), rgba(0,191,255,0.8), rgba(50,205,50,0.6));
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          mix-blend-mode: color-dodge; 
+          opacity: ${isDarkMode ? '0.4' : '0.6'};
+          z-index: -1;
+        }
+      `}</style>
     </div>
   );
 
   return (
     <div className={`flex flex-col h-screen ${theme.chatBg} ${theme.textMain} overflow-hidden font-sans transition-colors duration-500 relative`}>
-      <FontLink />
       <header className={`px-6 py-4 border-b ${theme.border} flex justify-between items-center ${theme.headerBg} shrink-0 z-10`}>
         <div className="flex items-center gap-5">
-          <button onClick={() => setCurrentRoom("")} className={`${theme.textSub} text-[10px] font-bold uppercase hover:text-blue-500 transition-colors`}>◀ Exit</button>
+          <button onClick={() => setCurrentRoom("")} className={`${theme.textSub} text-[10px] font-bold uppercase hover:text-indigo-400 transition-colors`}>◀ Exit</button>
           <div className="flex flex-col text-left gap-0.5">
-            <h1 className="text-sm font-black italic text-blue-500 uppercase leading-none tracking-tight">{currentRoom}</h1>
+            <h1 className="text-sm font-black italic text-indigo-400 uppercase leading-none tracking-tight">{currentRoom}</h1>
             <div className="flex items-center gap-2 mt-0.5">
               <span className={`text-[10px] ${theme.textMain} font-bold opacity-80`}>{myName}</span>
-              <button onClick={() => { setTempName(myName); setTempImg(myProfileImg); setIsEditingProfile(!isEditingProfile); }} className={`text-[9px] ${theme.textSub} font-bold uppercase underline hover:text-blue-400`}>Edit</button>
+              <button onClick={() => { setTempName(myName); setTempImg(myProfileImg); setIsEditingProfile(!isEditingProfile); }} className={`text-[9px] ${theme.textSub} font-bold uppercase underline hover:text-indigo-400`}>Edit</button>
             </div>
           </div>
         </div>
         <div className="flex items-center gap-4">
-          <button onClick={toggleTheme} className={`text-[9px] font-black border ${theme.border} ${isDarkMode ? 'bg-white/5' : 'bg-black/5'} ${theme.textSub} px-3 py-2 rounded-full hover:bg-blue-500 hover:text-white transition-all`}>
+          <button onClick={toggleTheme} className={`text-[9px] font-black border ${theme.border} ${isDarkMode ? 'bg-white/5' : 'bg-black/5'} ${theme.textSub} px-3 py-2 rounded-full hover:bg-indigo-500 hover:text-white transition-all`}>
             {isDarkMode ? "DAY" : "NIGHT"}
           </button>
           <img src={myProfileImg} className={`w-9 h-9 rounded-full border ${theme.border} object-cover shadow-sm`} />
@@ -321,8 +373,8 @@ export default function AetherOS_PrismGlow_Refined() {
               <span className="absolute inset-0 flex items-center justify-center text-[9px] font-black uppercase text-white drop-shadow-md">Edit</span>
             </div>
             <input type="file" ref={profileInputRef} onChange={handleProfileImgUpload} accept="image/*" className="hidden" />
-            <input value={tempName} onChange={(e) => setTempName(e.target.value)} className={`flex-1 ${theme.input} px-4 py-3 rounded-full text-xs ${theme.textMain} focus:outline-none focus:ring-1 focus:ring-blue-500/50`} placeholder="새 아이디" />
-            <button type="submit" className="bg-blue-600 hover:bg-blue-500 text-white px-5 py-3 rounded-full text-[10px] font-black uppercase shadow-lg active:scale-95 transition-all">Save</button>
+            <input value={tempName} onChange={(e) => setTempName(e.target.value)} className={`flex-1 ${theme.input} px-4 py-3 rounded-full text-xs ${theme.textMain} focus:outline-none focus:ring-2 focus:ring-indigo-500/50`} placeholder="새 아이디" />
+            <button type="submit" className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white px-5 py-3 rounded-full text-[10px] font-black uppercase shadow-lg active:scale-95 transition-all">Save</button>
             <button type="button" onClick={() => setIsEditingProfile(false)} className={`${theme.textSub} text-[10px] uppercase font-bold px-2 hover:text-white`}>Cancel</button>
           </form>
         </div>
@@ -351,13 +403,13 @@ export default function AetherOS_PrismGlow_Refined() {
       </div>
 
       <footer className={`px-6 py-5 ${theme.headerBg} border-t ${theme.border} shrink-0 z-10`}>
-        <form onSubmit={sendMessage} className={`flex items-center gap-3 max-w-5xl mx-auto ${theme.input} p-1.5 rounded-full focus-within:ring-1 focus-within:ring-blue-500/50 transition-all`}>
+        <form onSubmit={sendMessage} className={`flex items-center gap-3 max-w-5xl mx-auto ${theme.input} p-1.5 rounded-full focus-within:ring-2 focus-within:ring-indigo-500/50 transition-all`}>
           <button type="button" onClick={() => fileInputRef.current.click()} className={`w-10 h-10 flex items-center justify-center rounded-full ${isDarkMode ? 'text-zinc-400 hover:bg-white/10' : 'text-zinc-500 hover:bg-black/5'} transition-all`}>
             <span className="text-xl font-light">+</span>
           </button>
           <input type="file" ref={fileInputRef} onChange={(e) => { const f = e.target.files[0]; if(f) { const r = new FileReader(); r.onloadend = () => sendMessage(null, r.result); r.readAsDataURL(f); } }} accept="image/*" className="hidden" />
           <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Type a message..." className={`flex-1 bg-transparent px-2 py-2 text-sm ${theme.textMain} focus:outline-none placeholder:text-zinc-500`} />
-          <button type="submit" className="bg-blue-600 text-white px-6 py-3 rounded-full font-black text-[11px] uppercase tracking-widest shadow-lg shadow-blue-500/20 active:scale-95 transition-all">Send</button>
+          <button type="submit" className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-6 py-3 rounded-full font-black text-[11px] uppercase tracking-widest shadow-lg shadow-purple-500/20 active:scale-95 transition-all">Send</button>
         </form>
       </footer>
     </div>
