@@ -19,8 +19,6 @@ export default function AetherOS_Private_Nodes() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [currentRoom, setCurrentRoom] = useState("");
-  
-  // ✨ '모든 방'이 아닌 '내가 들어간 방'만 저장하는 상태
   const [myRooms, setMyRooms] = useState([]); 
   
   const [isDarkMode, setIsDarkMode] = useState(true);
@@ -40,8 +38,6 @@ export default function AetherOS_Private_Nodes() {
     const savedName = localStorage.getItem("aether-name");
     const savedImg = localStorage.getItem("aether-profile");
     const savedTheme = localStorage.getItem("aether-theme");
-    
-    // ✨ 내 기기에 저장된 '나만의 방 목록' 불러오기
     const savedRooms = JSON.parse(localStorage.getItem("aether-my-rooms") || "[]");
     
     if (savedName) { setMyName(savedName); setTempName(savedName); }
@@ -76,24 +72,18 @@ export default function AetherOS_Private_Nodes() {
     }
   };
 
-  // ✨ 방 입장 및 내 목록에 추가 로직
   const joinRoom = async (roomName) => {
     const name = roomName.trim();
     if (!name) return;
-
-    // 내 방 목록에 없다면 추가하고 브라우저에 저장
     if (!myRooms.includes(name)) {
       const updatedRooms = [name, ...myRooms];
       setMyRooms(updatedRooms);
       localStorage.setItem("aether-my-rooms", JSON.stringify(updatedRooms));
     }
-
-    // DB에 방 정보 업데이트 (방이 없으면 생성됨)
     await setDoc(doc(db, "rooms", name), { name: name, updatedAt: serverTimestamp() }, { merge: true });
     setCurrentRoom(name);
   };
 
-  // ✨ 방 삭제 대신 '목록에서 숨기기(나가기)' 기능
   const leaveRoom = (e, roomName) => {
     e.stopPropagation();
     if (confirm(`'${roomName}' 노드에서 나가시겠습니까? (다른 사람의 대화는 유지됩니다)`)) {
@@ -198,7 +188,6 @@ export default function AetherOS_Private_Nodes() {
         
         <h2 className="text-[10px] font-black text-left text-blue-500 tracking-widest uppercase mb-4 pl-2">My Nodes</h2>
         
-        {/* ✨ 내 목록이 비어있을 때 나오는 안내 문구 */}
         {myRooms.length === 0 && (
           <div className={`p-8 rounded-2xl border border-dashed ${theme.border} ${theme.textSub} text-[11px] font-bold`}>
             초대받은 노드 ID를 검색하여 접속하세요.
@@ -212,7 +201,6 @@ export default function AetherOS_Private_Nodes() {
                 <span className={`font-black ${theme.textMain} text-sm tracking-tight`}>{roomName}</span>
                 <span className="text-[9px] text-blue-500 font-bold uppercase tracking-widest">Connect</span>
               </button>
-              {/* ✨ 방 나가기 버튼 (내 목록에서만 삭제됨) */}
               <button onClick={(e) => leaveRoom(e, roomName)} className="absolute -right-2 -top-2 w-6 h-6 bg-red-500/10 text-red-500 rounded-full border border-red-500/20 text-[10px] opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center backdrop-blur-sm shadow-sm">✕</button>
             </div>
           ))}
@@ -235,6 +223,10 @@ export default function AetherOS_Private_Nodes() {
           </div>
         </div>
         <div className="flex items-center gap-3">
+          {/* ✨ 채팅방 우측 상단에 테마 변경 버튼 추가 */}
+          <button onClick={toggleTheme} className={`text-[9px] font-black border ${theme.border} ${theme.textSub} px-3 py-2 rounded-xl hover:bg-blue-500 hover:text-white transition-all`}>
+            {isDarkMode ? "DAY" : "NIGHT"}
+          </button>
           <img src={myProfileImg} className={`w-8 h-8 rounded-full border ${theme.border} object-cover shadow-sm`} />
         </div>
       </header>
