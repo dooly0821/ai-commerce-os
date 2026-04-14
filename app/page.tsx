@@ -51,7 +51,7 @@ export default function AetherOS_Perfect_Profile() {
     return () => unsubscribe();
   }, [myName]);
 
-  // ✨ 프로필 저장 함수 (엔터키 완벽 지원 & 즉시 닫힘)
+  // ✨ 프로필 저장 함수 (알림창 추가 및 확실한 업데이트)
   const handleProfileSave = async (e) => {
     if (e) e.preventDefault();
     if (!tempName.trim()) return alert("아이디를 입력해주세요!");
@@ -70,10 +70,14 @@ export default function AetherOS_Perfect_Profile() {
       
       setMyName(tempName);
       setMyProfileImg(finalImg);
-      setIsEditingProfile(false); // 저장 완료 시 편집창 깔끔하게 닫힘
+      setIsEditingProfile(false); 
+
+      // ✨ 제대로 실행되었는지 확인하기 위한 성공 알림창!
+      alert(`[AETHER OS] '${tempName}'(으)로 프로필이 변경되었습니다! ✅`);
+
     } catch (err) {
       console.error(err);
-      alert("프로필 저장 중 오류가 발생했습니다. Storage 세팅을 확인하세요.");
+      alert("🚨 프로필 저장 오류: Firebase Storage 테스트 모드 설정이 안 되어 있을 수 있습니다.");
     }
   };
 
@@ -108,7 +112,6 @@ export default function AetherOS_Perfect_Profile() {
 
   useEffect(() => {
     if (!currentRoom || !myName) return;
-
     const hasEnteredKey = `entered_${currentRoom}_${myName}`;
     if (!sessionStorage.getItem(hasEnteredKey)) {
       addDoc(collection(db, "rooms", currentRoom, "messages"), {
@@ -116,12 +119,10 @@ export default function AetherOS_Perfect_Profile() {
       });
       sessionStorage.setItem(hasEnteredKey, 'true');
     }
-
     const q = query(collection(db, "rooms", currentRoom, "messages"), orderBy("createdAt", "asc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setMessages(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
     });
-
     return () => {
       if (currentRoom && myName) {
         addDoc(collection(db, "rooms", currentRoom, "messages"), {
@@ -142,10 +143,8 @@ export default function AetherOS_Perfect_Profile() {
   const sendMessage = async (e, imgData = null) => {
     if (e) e.preventDefault();
     if ((!input.trim() && !imgData) || !myName) return;
-
     const currentInput = input;
     setInput("");
-
     try {
       let uploadedImageUrl = null;
       if (imgData) {
@@ -153,22 +152,15 @@ export default function AetherOS_Perfect_Profile() {
         await uploadString(imageRef, imgData, 'data_url');
         uploadedImageUrl = await getDownloadURL(imageRef);
       }
-      
       await addDoc(collection(db, "rooms", currentRoom, "messages"), {
-        text: currentInput, 
-        image: uploadedImageUrl, 
-        userName: myName, 
-        userPhoto: myProfileImg, 
-        type: "chat", 
-        createdAt: serverTimestamp()
+        text: currentInput, image: uploadedImageUrl, userName: myName, userPhoto: myProfileImg, type: "chat", createdAt: serverTimestamp()
       });
-      
       await setDoc(doc(db, "rooms", currentRoom), { updatedAt: serverTimestamp() }, { merge: true });
       isUserAtBottom.current = true;
       setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
     } catch (error) {
       console.error(error);
-      alert("🚨 전송 실패: 파일 저장소 설정에 문제가 있습니다.");
+      alert("🚨 메시지 전송 실패!");
       setInput(currentInput);
     }
   };
@@ -218,7 +210,6 @@ export default function AetherOS_Perfect_Profile() {
           <button onClick={() => setCurrentRoom("")} className="text-zinc-600 text-[10px] font-bold uppercase hover:text-white transition-colors">◀ Exit</button>
           <div className="flex flex-col text-left">
             <h1 className="text-xs font-black italic text-blue-500 uppercase leading-none">{currentRoom}</h1>
-            {/* ✨ 지워졌던 내 이름 표시 영역 복구 & Edit 버튼 나란히 배치 */}
             <div className="flex items-center gap-2 mt-1">
               <span className="text-[10px] text-zinc-300 font-bold">{myName}</span>
               <button onClick={() => { setTempName(myName); setTempImg(myProfileImg); setIsEditingProfile(!isEditingProfile); }} className="text-[8px] text-zinc-500 font-bold uppercase underline hover:text-blue-400">Edit</button>
@@ -228,7 +219,6 @@ export default function AetherOS_Perfect_Profile() {
         <img src={myProfileImg} className="w-8 h-8 rounded-full border border-zinc-800 object-cover" />
       </header>
 
-      {/* ✨ 폼 태그로 완전히 감싸서 엔터키 작동 보장 */}
       {isEditingProfile && (
         <div className="p-5 bg-zinc-900/95 border-b border-zinc-800 backdrop-blur-md">
           <form onSubmit={handleProfileSave} className="flex items-center gap-4 max-w-lg mx-auto">
