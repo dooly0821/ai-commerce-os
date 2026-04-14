@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { initializeApp, getApps, getApp } from "firebase/app"; 
 import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, deleteDoc, doc, setDoc } from "firebase/firestore";
 
-// Firebase 설정 (민혁님의 기존 설정 유지)
+// 1. Firebase 설정 (완벽 유지)
 const firebaseConfig = {
   apiKey: "AIzaSyD9-u-Qz2EWRDAzr7NAuUE6I7sGyCP0Cdc",
   authDomain: "dooly-66736.firebaseapp.com",
@@ -16,7 +16,8 @@ const firebaseConfig = {
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);
 
-export default function DoolyOS_Final_Premium() {
+export default function DoolyOS_Ultimate() {
+  // 2. 상태 관리 (모든 기능 상태 완벽 복구)
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [currentRoom, setCurrentRoom] = useState("");
@@ -28,128 +29,49 @@ export default function DoolyOS_Final_Premium() {
   const [tempName, setTempName] = useState("");
   const [tempImg, setTempImg] = useState("");
 
-  const canvasRef = useRef(null);
   const scrollRef = useRef(null); 
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null); 
   const profileInputRef = useRef(null);
   const isUserAtBottom = useRef(true);
-  const chromeTextRef = useRef(null);
+  const doolyLogoRef = useRef(null);
+  const bgLayerRef = useRef(null);
 
-  // ✨ WebGL Shader 이식 및 마우스 인터랙션 (보내주신 HTML 기반)
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const gl = canvas.getContext('webgl');
-    if (!gl) return;
-
-    const vsSource = `attribute vec2 position; void main() { gl_Position = vec4(position, 0.0, 1.0); }`;
-    const fsSource = `
-      precision highp float;
-      uniform float uTime;
-      uniform vec2 uResolution;
-      uniform vec2 uMouse;
-      uniform float uDarkMode;
-
-      mat2 rot(float a) { float s=sin(a), c=cos(a); return mat2(c, -s, s, c); }
-      
-      float map(vec3 p) {
-        p.xz *= rot(uTime * 0.3 + uMouse.x * 0.5);
-        p.xy *= rot(uTime * 0.2 + uMouse.y * 0.5);
-        // 젤리/조개 형태의 굴절체 구현
-        vec3 q = abs(p) - 1.5;
-        float d = length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0);
-        return d + sin(p.x*2.0+uTime)*0.15;
-      }
-
-      void main() {
-        vec2 uv = (gl_FragCoord.xy - 0.5 * uResolution) / min(uResolution.x, uResolution.y);
-        vec3 ro = vec3(0, 0, 5.0);
-        vec3 rd = normalize(vec3(uv, -1.0));
-        
-        float t = 0.0;
-        for(int i=0; i<80; i++) {
-          float d = map(ro + rd * t);
-          if(d < 0.001 || t > 20.0) break;
-          t += d * 0.7;
-        }
-
-        // 은하수/별빛 배경색
-        vec3 bg = uDarkMode > 0.5 ? vec3(0.01, 0.01, 0.04) : vec3(0.94, 0.95, 0.98);
-        vec3 color = bg;
-
-        if(t < 20.0) {
-          vec3 p = ro + rd * t;
-          vec2 e = vec2(0.001, 0.0);
-          vec3 n = normalize(vec3(map(p+e.xyy)-map(p-e.xyy), map(p+e.yxy)-map(p-e.yxy), map(p+e.yyx)-map(p-e.yyx)));
-          
-          // 무지개 프리즘 굴절 효과
-          float r = refract(rd, n, 0.60).x;
-          float g = refract(rd, n, 0.65).y;
-          float b = refract(rd, n, 0.70).z;
-          
-          vec3 prism = vec3(r+0.8, g+0.5, b+0.9);
-          float fresnel = pow(1.0 - max(0.0, dot(-rd, n)), 5.0);
-          color = mix(prism * 0.6, vec3(1.0), fresnel);
-        }
-        
-        gl_FragColor = vec4(color, 1.0);
-      }
-    `;
-
-    const program = gl.createProgram();
-    const addShader = (type, src) => {
-      const s = gl.createShader(type);
-      gl.shaderSource(s, src); gl.compileShader(s);
-      gl.attachShader(program, s);
-    };
-    addShader(gl.VERTEX_SHADER, vsSource);
-    addShader(gl.FRAGMENT_SHADER, fsSource);
-    gl.linkProgram(program);
-
-    const buffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
-
-    const uTime = gl.getUniformLocation(program, 'uTime');
-    const uRes = gl.getUniformLocation(program, 'uResolution');
-    const uMouse = gl.getUniformLocation(program, 'uMouse');
-    const uDarkMode = gl.getUniformLocation(program, 'uDarkMode');
-    const posLoc = gl.getAttribLocation(program, 'position');
-
-    let mouse = { x: 0, y: 0 };
-    const onMove = (e) => { mouse.x = (e.clientX / window.innerWidth) - 0.5; mouse.y = (e.clientY / window.innerHeight) - 0.5; };
-    window.addEventListener('mousemove', onMove);
-
-    const render = (time) => {
-      canvas.width = window.innerWidth; canvas.height = window.innerHeight;
-      gl.viewport(0, 0, canvas.width, canvas.height);
-      gl.useProgram(program);
-      gl.uniform1f(uTime, time * 0.001);
-      gl.uniform2f(uRes, canvas.width, canvas.height);
-      gl.uniform2f(uMouse, mouse.x, mouse.y);
-      gl.uniform1f(uDarkMode, isDarkMode ? 1.0 : 0.0);
-      gl.enableVertexAttribArray(posLoc);
-      gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
-      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-      requestAnimationFrame(render);
-    };
-    requestAnimationFrame(render);
-    return () => window.removeEventListener('mousemove', onMove);
-  }, [isDarkMode]);
-
-  // 기존 로직 유지 (프로필, 방 참여 등)
+  // 3. 로컬 데이터 초기화
   useEffect(() => {
     const savedName = localStorage.getItem("aether-name");
     const savedImg = localStorage.getItem("aether-profile");
     const savedTheme = localStorage.getItem("aether-theme");
     const savedRooms = JSON.parse(localStorage.getItem("aether-my-rooms") || "[]");
+    
     if (savedName) { setMyName(savedName); setTempName(savedName); }
     if (savedImg) { setMyProfileImg(savedImg); setTempImg(savedImg); }
     if (savedTheme !== null) setIsDarkMode(savedTheme === "true");
     setMyRooms(savedRooms);
   }, []);
 
+  // 4. 마우스 3D 모션 (로고 및 배경 젤리 요소 연동)
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      const x = (e.clientX / window.innerWidth - 0.5) * 2; // -1 to 1
+      const y = (e.clientY / window.innerHeight - 0.5) * 2; // -1 to 1
+
+      // DOOLY 로고 3D 틸팅
+      if (doolyLogoRef.current) {
+        doolyLogoRef.current.style.setProperty('--rotateX', `${-y * 15}deg`);
+        doolyLogoRef.current.style.setProperty('--rotateY', `${x * 15}deg`);
+      }
+      
+      // 배경 젤리/은하수 시차 효과 (Parallax)
+      if (bgLayerRef.current) {
+        bgLayerRef.current.style.transform = `translate(${x * -20}px, ${y * -20}px)`;
+      }
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, []);
+
+  // 5. 핵심 기능 로직 (다운그레이드 없이 완벽 복구)
   const toggleTheme = () => {
     const newMode = !isDarkMode;
     setIsDarkMode(newMode);
@@ -165,6 +87,15 @@ export default function DoolyOS_Final_Premium() {
     setMyName(tempName);
     setMyProfileImg(finalImg);
     setIsEditingProfile(false); 
+  };
+
+  const handleProfileImgUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => setTempImg(reader.result);
+      reader.readAsDataURL(file);
+    }
   };
 
   const joinRoom = async (roomName) => {
@@ -188,14 +119,41 @@ export default function DoolyOS_Final_Premium() {
     }
   };
 
+  const deleteMsg = async (id) => {
+    if (confirm("메시지를 삭제하시겠습니까?")) {
+      await deleteDoc(doc(db, "rooms", currentRoom, "messages", id));
+    }
+  };
+
   useEffect(() => {
     if (!currentRoom || !myName) return;
+    const hasEnteredKey = `entered_${currentRoom}_${myName}`;
+    if (!sessionStorage.getItem(hasEnteredKey)) {
+      addDoc(collection(db, "rooms", currentRoom, "messages"), {
+        type: "system", text: `${myName}님이 접속했습니다.`, createdAt: serverTimestamp()
+      });
+      sessionStorage.setItem(hasEnteredKey, 'true');
+    }
     const q = query(collection(db, "rooms", currentRoom, "messages"), orderBy("createdAt", "asc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setMessages(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
     });
-    return () => unsubscribe();
+    return () => {
+      if (currentRoom && myName) {
+        addDoc(collection(db, "rooms", currentRoom, "messages"), {
+          type: "system", text: `${myName}님이 연결을 해제했습니다.`, createdAt: serverTimestamp()
+        });
+        sessionStorage.removeItem(hasEnteredKey);
+      }
+      unsubscribe();
+    };
   }, [currentRoom, myName]);
+
+  useEffect(() => {
+    if (isUserAtBottom.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages]);
 
   const sendMessage = async (e, imgData = null) => {
     if (e) e.preventDefault();
@@ -215,84 +173,116 @@ export default function DoolyOS_Final_Premium() {
     }
   };
 
+  // ✨ 테마 컬러 팔레트
   const theme = {
-    bg: isDarkMode ? "bg-[#020205]" : "bg-[#F3F5F8]",
-    card: isDarkMode ? "bg-black/40 border-white/10" : "bg-white/80 border-black/5",
-    text: isDarkMode ? "text-white" : "text-black",
-    input: isDarkMode ? "bg-white/5 border-white/10 shadow-inner" : "bg-black/5 border-black/5",
+    bg: isDarkMode ? "bg-[#050508]" : "bg-[#F3F4F8]",
+    chatBg: isDarkMode ? "bg-[#0A0A0F]" : "bg-[#FCFCFD]",
+    card: isDarkMode ? "bg-[#11121A]/60 border border-white/5 shadow-[0_20px_60px_rgba(0,0,0,0.8)]" : "bg-white/80 border border-black/5 shadow-[0_20px_50px_rgba(0,0,0,0.1)]",
+    textMain: isDarkMode ? "text-white" : "text-[#1A1A1A]",
+    textSub: isDarkMode ? "text-zinc-500" : "text-zinc-400",
+    input: isDarkMode ? "bg-white/5 border border-white/10 text-white" : "bg-black/5 border border-black/5 text-black",
+    bubbleMe: "bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-lg",
+    bubbleOther: isDarkMode ? "bg-[#1A1B26] border border-white/5 text-zinc-300" : "bg-white border border-black/5 text-zinc-700 shadow-sm",
   };
 
-  // ✨ 인트로/리스트 공통 팝업 레이아웃
-  if (!currentRoom) return (
-    <div className={`h-screen ${theme.bg} flex items-center justify-center p-6 relative overflow-hidden transition-all duration-700`}>
-      {/* 셰이더 캔버스 */}
-      <canvas ref={canvasRef} className="absolute inset-0 z-0" />
-      
-      {/* 팝업 카드 (정렬 이슈 해결) */}
-      <div className={`${theme.card} relative z-10 w-full max-w-[440px] p-10 rounded-[50px] border backdrop-blur-3xl shadow-2xl flex flex-col items-center gap-10 animate-in zoom-in duration-700 overflow-visible`}>
-        <div className="text-center w-full">
-          {/* 무지개 프리즘 DOOLY 로고 */}
-          <h1 className="PRISM_LOGO text-7xl font-black italic tracking-tighter uppercase mb-2 select-none">DOOLY</h1>
-          <div className="flex justify-center gap-4 mt-2">
-            <button onClick={toggleTheme} className="text-[9px] font-bold tracking-[0.2em] text-blue-500 uppercase hover:brightness-125">
-              {isDarkMode ? "Night Protocol" : "Day Protocol"}
-            </button>
-            {!myName ? null : <button onClick={() => { localStorage.clear(); location.reload(); }} className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Logout</button>}
-          </div>
-        </div>
+  // ✨ 빈 공간을 가득 채우는 젤리 & 은하수 배경 (가장 안정적이고 화려한 방식)
+  const GalaxyJellyBackground = () => (
+    <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none" style={{ perspective: '1000px' }}>
+      <div ref={bgLayerRef} className="absolute inset-[-5%] w-[110%] h-[110%] transition-transform duration-300 ease-out">
+        {/* 별빛 은하수 베이스 */}
+        <div className={`absolute inset-0 ${isDarkMode ? 'opacity-40' : 'opacity-10'} bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] mix-blend-screen`}></div>
+        
+        {/* 좌측 여백을 채우는 몽글몽글한 보라/파랑 젤리 */}
+        <div className={`absolute -top-20 -left-20 w-[40vw] h-[40vw] ${isDarkMode ? 'bg-purple-600/30' : 'bg-purple-300/40'} rounded-[40%_60%_70%_30%] blur-[80px] animate-blob mix-blend-screen`}></div>
+        <div className={`absolute top-[40%] -left-32 w-[30vw] h-[30vw] ${isDarkMode ? 'bg-indigo-600/20' : 'bg-indigo-300/30'} rounded-[60%_40%_30%_70%] blur-[90px] animate-blob animation-delay-2000 mix-blend-screen`}></div>
+        
+        {/* 우측 여백을 채우는 몽글몽글한 에메랄드/핑크 젤리 */}
+        <div className={`absolute -bottom-20 -right-20 w-[45vw] h-[45vw] ${isDarkMode ? 'bg-emerald-500/20' : 'bg-emerald-300/30'} rounded-[30%_70%_70%_30%] blur-[100px] animate-blob animation-delay-4000 mix-blend-screen`}></div>
+        <div className={`absolute top-10 -right-10 w-[35vw] h-[35vw] ${isDarkMode ? 'bg-pink-600/20' : 'bg-pink-300/30'} rounded-[70%_30%_50%_50%] blur-[90px] animate-blob mix-blend-screen`}></div>
 
-        {!myName ? (
-          <form onSubmit={handleProfileSave} className="w-full flex flex-col items-center gap-8">
-            <div className={`w-28 h-28 rounded-full ${theme.input} border overflow-hidden cursor-pointer flex items-center justify-center hover:border-blue-500 transition-all`} onClick={() => profileInputRef.current.click()}>
-              {tempImg ? <img src={tempImg} className="w-full h-full object-cover" /> : <span className="text-[10px] font-bold text-zinc-500">PHOTO +</span>}
-            </div>
-            <input type="file" ref={profileInputRef} onChange={(e) => { const f=e.target.files[0]; if(f){const r=new FileReader(); r.onloadend=()=>setTempImg(r.result); r.readAsDataURL(f);}}} accept="image/*" className="hidden" />
-            <input value={tempName} onChange={(e) => setTempName(e.target.value)} placeholder="ENTER ID" className={`w-full ${theme.input} border p-5 rounded-2xl ${theme.text} text-center font-bold tracking-widest outline-none`} />
-            <button type="submit" className="w-full bg-blue-600 py-5 rounded-2xl text-white font-black tracking-[0.2em] text-[12px] shadow-lg shadow-blue-500/30 active:scale-95 transition-all">START SYSTEM</button>
-          </form>
-        ) : (
-          <div className="w-full flex flex-col items-center gap-8">
-            <img src={myProfileImg} className="w-24 h-24 rounded-full border-2 border-blue-500/20 object-cover shadow-2xl" />
-            <h2 className={`text-2xl font-black ${theme.text} tracking-tight uppercase`}>{myName}</h2>
-            <div className="w-full flex flex-col gap-4">
-               <input onKeyDown={(e) => e.key === 'Enter' && joinRoom(e.currentTarget.value)} placeholder="SEARCH NODE" className={`w-full ${theme.input} border p-4 rounded-xl ${theme.text} text-center font-bold outline-none text-xs`} />
-               <div className="max-h-[180px] overflow-y-auto space-y-2 pr-2 scrollbar-hide">
-                 {myRooms.map(room => (
-                   <button key={room} onClick={() => joinRoom(room)} className={`w-full ${theme.input} border p-4 rounded-xl flex justify-between items-center hover:bg-blue-600/10 transition-all group`}>
-                     <span className={`font-black ${theme.text} text-sm`}>{room}</span>
-                     <span className="text-[9px] text-blue-500 font-bold opacity-0 group-hover:opacity-100 transition-opacity">CONNECT</span>
-                   </button>
-                 ))}
-               </div>
-            </div>
+        {/* 3D 부유하는 프리즘 크리스탈 조각들 (CSS 3D로 안정적 구현) */}
+        {[...Array(6)].map((_, i) => (
+          <div key={i} className="absolute animate-float" style={{
+            top: `${15 + Math.random() * 70}%`,
+            left: `${i % 2 === 0 ? Math.random() * 20 : 80 + Math.random() * 15}%`, // 좌우 여백에 집중 배치
+            animationDelay: `${Math.random() * 5}s`,
+            animationDuration: `${10 + Math.random() * 10}s`
+          }}>
+            <div className={`w-16 h-16 ${isDarkMode ? 'bg-white/10 border-white/20' : 'bg-black/5 border-black/10'} border backdrop-blur-md rotate-45 rounded-lg shadow-2xl`}></div>
           </div>
-        )}
+        ))}
+      </div>
+    </div>
+  );
+
+  if (!myName) return (
+    <div className={`h-screen ${theme.bg} flex items-center justify-center p-6 font-sans relative overflow-hidden transition-colors duration-700`}>
+      <GalaxyJellyBackground />
+      
+      {/* 팝업 중앙 정렬 완벽 복구 */}
+      <div className={`${theme.card} p-12 w-full max-w-[460px] rounded-[40px] flex flex-col items-center gap-10 z-10 backdrop-blur-2xl animate-in zoom-in duration-700`}>
+          <div className="flex flex-col items-center w-full">
+            <h1 ref={doolyLogoRef} className="PRISM_DOOLY text-[5.5rem] font-black italic tracking-tighter uppercase select-none mb-1">
+              DOOLY
+            </h1>
+            <button onClick={toggleTheme} className={`${theme.textSub} text-[10px] font-bold uppercase tracking-[0.2em] hover:text-indigo-500 transition-colors mt-2`}>
+              {isDarkMode ? "Day Protocol" : "Night Protocol"}
+            </button>
+          </div>
+
+          <form onSubmit={handleProfileSave} className="w-full flex flex-col items-center space-y-6">
+            <div className={`w-28 h-28 rounded-full ${theme.input} overflow-hidden flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-indigo-500 transition-all group relative`} onClick={() => profileInputRef.current.click()}>
+              {tempImg ? <img src={tempImg} className="w-full h-full object-cover" /> : <span className="text-zinc-500 text-[11px] font-bold tracking-widest group-hover:text-indigo-400">PHOTO +</span>}
+            </div>
+            <input type="file" ref={profileInputRef} onChange={handleProfileImgUpload} accept="image/*" className="hidden" />
+            <input value={tempName} onChange={(e) => setTempName(e.target.value)} placeholder="ENTER ID" className={`w-full ${theme.input} px-6 py-4 rounded-xl text-center focus:outline-none focus:ring-1 focus:ring-indigo-500/50 text-sm font-bold tracking-widest`} />
+            <button type="submit" className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white py-4 rounded-xl font-black uppercase tracking-[0.2em] text-[12px] shadow-lg shadow-purple-500/20 active:scale-[0.98] transition-all">Start System</button>
+          </form>
       </div>
 
+      {/* 글로벌 CSS (고딕 폰트 및 애니메이션) */}
       <style jsx global>{`
-        /* 고딕 폰트 적용 (민혁님 요청) */
         @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
-        * { font-family: 'Pretendard', -apple-system, sans-serif !important; letter-spacing: -0.03em; box-sizing: border-box; }
+        * { font-family: 'Pretendard', -apple-system, sans-serif; box-sizing: border-box; }
         
-        /* 무지개 프리즘 로고 스타일 */
-        .PRISM_LOGO {
-          background: linear-gradient(180deg, #fff 0%, #bbb 100%);
+        /* 젤리 애니메이션 */
+        @keyframes blob {
+          0% { transform: translate(0px, 0px) scale(1) rotate(0deg); }
+          33% { transform: translate(30px, -50px) scale(1.1) rotate(10deg); }
+          66% { transform: translate(-20px, 20px) scale(0.9) rotate(-10deg); }
+          100% { transform: translate(0px, 0px) scale(1) rotate(0deg); }
+        }
+        .animate-blob { animation: blob 15s infinite alternate ease-in-out; }
+        .animation-delay-2000 { animation-delay: 2s; }
+        .animation-delay-4000 { animation-delay: 4s; }
+        
+        @keyframes float {
+          0%, 100% { transform: translateY(0) rotate(45deg); }
+          50% { transform: translateY(-20px) rotate(60deg); }
+        }
+        .animate-float { animation: float infinite ease-in-out; }
+
+        /* 무지개 프리즘 3D 로고 */
+        .PRISM_DOOLY {
+          background: linear-gradient(180deg, ${isDarkMode ? '#FFFFFF 0%, #AAAAAA' : '#333333 0%, #111111'} 100%);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
           position: relative;
-          filter: drop-shadow(0 0 15px rgba(255,255,255,0.3));
+          transform-style: preserve-3d;
+          transform: perspective(1000px) rotateX(var(--rotateX, 0deg)) rotateY(var(--rotateY, 0deg));
+          filter: drop-shadow(0 10px 15px rgba(0,0,0,${isDarkMode ? '0.5' : '0.1'}));
         }
-        .PRISM_LOGO::after {
+        .PRISM_DOOLY::after {
           content: "DOOLY";
           position: absolute;
           inset: 0;
-          background: linear-gradient(90deg, #ff00ff, #00ffff, #00ff00, #ffff00, #ff00ff);
+          background: linear-gradient(120deg, rgba(148,0,211,0.8), rgba(0,191,255,0.8), rgba(50,205,50,0.8));
           background-size: 200% auto;
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
           mix-blend-mode: ${isDarkMode ? 'color-dodge' : 'overlay'};
-          opacity: 0.7;
-          animation: prismFlow 4s linear infinite;
+          opacity: ${isDarkMode ? '0.7' : '0.4'};
+          animation: prismFlow 3s linear infinite;
           z-index: 1;
         }
         @keyframes prismFlow { 0% { background-position: 0% center; } 100% { background-position: 200% center; } }
@@ -301,42 +291,126 @@ export default function DoolyOS_Final_Premium() {
     </div>
   );
 
-  // 채팅방 화면
-  return (
-    <div className={`flex flex-col h-screen ${isDarkMode ? 'bg-[#050505]' : 'bg-[#f8f9fa]'} transition-colors`}>
-      <header className={`px-8 py-5 border-b ${isDarkMode ? 'border-white/5' : 'border-black/5'} flex justify-between items-center backdrop-blur-md z-10`}>
-        <div className="flex items-center gap-6">
-          <button onClick={() => setCurrentRoom("")} className="text-blue-500 text-[10px] font-black uppercase tracking-widest">◀ Exit</button>
-          <h1 className="text-sm font-black text-blue-500 italic uppercase tracking-tighter">{currentRoom}</h1>
-        </div>
-        <div className="flex items-center gap-4">
-          <button onClick={toggleTheme} className={`text-[9px] font-bold border ${isDarkMode ? 'border-white/10' : 'border-black/5'} px-4 py-2 rounded-full ${theme.text}`}>{isDarkMode ? "DAY" : "NIGHT"}</button>
-          <img src={myProfileImg} className="w-9 h-9 rounded-full object-cover border border-white/10" />
-        </div>
-      </header>
-      
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-8 space-y-8 scrollbar-hide">
-        {messages.map((m) => (
-          <div key={m.id} className={`flex gap-4 ${m.userName === myName ? 'flex-row-reverse' : ''}`}>
-            <img src={m.userPhoto} className="w-9 h-9 rounded-full shrink-0 object-cover border border-white/5 shadow-sm" />
-            <div className={`flex flex-col ${m.userName === myName ? 'items-end' : 'items-start'} max-w-[70%]`}>
-              <span className="text-[9px] font-bold text-zinc-500 mb-2 uppercase tracking-widest">{m.userName}</span>
-              <div className={`p-5 rounded-[24px] text-[14px] leading-relaxed shadow-sm ${m.userName === myName ? 'bg-blue-600 text-white rounded-tr-none' : `${theme.card} rounded-tl-none border ${theme.text}`}`}>
-                {m.image && <img src={m.image} className="w-full rounded-xl mb-4 border border-white/5 shadow-inner" />}
-                <p>{m.text}</p>
-              </div>
+  // 리스트 화면 (팝업 모드)
+  if (!currentRoom) return (
+    <div className={`h-screen ${theme.bg} flex items-center justify-center p-6 relative overflow-hidden transition-all duration-700`}>
+      <GalaxyJellyBackground />
+      <div className={`${theme.card} p-10 w-full max-w-[460px] rounded-[40px] flex flex-col items-center gap-8 z-10 backdrop-blur-2xl animate-in fade-in zoom-in duration-500`}>
+          <div className="flex flex-col items-center w-full relative">
+            <h1 ref={doolyLogoRef} className="PRISM_DOOLY text-[3rem] font-black italic tracking-tighter uppercase select-none mb-6">DOOLY</h1>
+            <div className="relative mb-3">
+              <img src={myProfileImg} className="w-20 h-20 rounded-full object-cover shadow-xl border-2 border-indigo-500/30" />
+            </div>
+            <p className={`${theme.textMain} font-black text-xl tracking-tight`}>{myName}</p>
+            <div className="flex gap-4 mt-3">
+               <button onClick={toggleTheme} className={`${theme.textSub} text-[9px] font-bold uppercase tracking-widest hover:text-indigo-400 transition-all`}>{isDarkMode ? "Day Mode" : "Night Mode"}</button>
+               <button onClick={() => { localStorage.clear(); location.reload(); }} className="text-zinc-500 text-[9px] font-bold uppercase tracking-widest hover:text-red-500 transition-colors">Logout</button>
             </div>
           </div>
+
+          <div className="w-full flex flex-col h-[35vh]">
+            <input onKeyDown={(e) => e.key === 'Enter' && joinRoom(e.currentTarget.value)} placeholder="SEARCH NODE (ENTER)" className={`w-full ${theme.input} px-6 py-4 rounded-xl text-center mb-6 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 text-xs font-bold tracking-widest`} />
+            <h2 className={`text-[10px] font-black text-left text-indigo-500 tracking-widest uppercase mb-3 pl-2`}>My Nodes</h2>
+            
+            {myRooms.length === 0 && (
+              <div className={`flex-1 flex items-center justify-center border border-dashed ${isDarkMode ? 'border-white/10' : 'border-black/10'} rounded-2xl`}>
+                <span className={`${theme.textSub} text-[10px] font-bold`}>NO NODES FOUND</span>
+              </div>
+            )}
+
+            <div className="flex-1 overflow-y-auto space-y-2 pr-2 scrollbar-hide">
+              {myRooms.map((roomName) => (
+                <div key={roomName} className="relative group">
+                  <button onClick={() => joinRoom(roomName)} className={`w-full ${theme.input} px-5 py-4 rounded-xl flex items-center justify-between hover:bg-indigo-500/10 transition-all active:scale-[0.98]`}>
+                    <span className={`font-black ${theme.textMain} text-sm tracking-tight`}>{roomName}</span>
+                    <span className="text-[9px] text-indigo-500 font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-all">Connect</span>
+                  </button>
+                  <button onClick={(e) => leaveRoom(e, roomName)} className="absolute -right-2 -top-2 w-6 h-6 bg-red-500/20 text-red-500 rounded-full text-[9px] opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center">✕</button>
+                </div>
+              ))}
+            </div>
+          </div>
+      </div>
+    </div>
+  );
+
+  // 채팅방 화면 (기능 완벽 복구)
+  return (
+    <div className={`flex flex-col h-screen ${theme.chatBg} transition-colors relative`}>
+      {/* 1. 기능 복구: 풀 헤더 (방이름, 정보, 수정, 테마) */}
+      <header className={`px-6 py-4 border-b ${isDarkMode ? 'border-white/5' : 'border-black/5'} flex justify-between items-center backdrop-blur-xl bg-inherit z-20`}>
+        <div className="flex items-center gap-5">
+          <button onClick={() => setCurrentRoom("")} className={`${theme.textSub} text-[10px] font-bold uppercase hover:text-indigo-500 transition-colors`}>◀ EXIT</button>
+          <div className="flex flex-col text-left gap-0.5">
+            <h1 className="text-sm font-black italic text-indigo-500 uppercase tracking-tighter">{currentRoom}</h1>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className={`text-[10px] ${theme.textMain} font-bold opacity-80`}>{myName}</span>
+              {/* 기능 복구: 프로필 수정 버튼 */}
+              <button onClick={() => { setTempName(myName); setTempImg(myProfileImg); setIsEditingProfile(!isEditingProfile); }} className={`text-[9px] ${theme.textSub} font-bold uppercase underline hover:text-indigo-400`}>EDIT</button>
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <button onClick={toggleTheme} className={`text-[9px] font-black border ${isDarkMode ? 'border-white/10' : 'border-black/5'} ${theme.textSub} px-3 py-1.5 rounded-full hover:bg-indigo-500 hover:text-white transition-all`}>
+            {isDarkMode ? "DAY" : "NIGHT"}
+          </button>
+          <img src={myProfileImg} className="w-8 h-8 rounded-full object-cover border border-white/10 shadow-sm" />
+        </div>
+      </header>
+
+      {/* 2. 기능 복구: 프로필 수정 모달/오버레이 */}
+      {isEditingProfile && (
+        <div className={`absolute top-[70px] left-0 w-full p-6 bg-black/40 backdrop-blur-2xl border-b ${isDarkMode ? 'border-white/10' : 'border-black/10'} animate-in slide-in-from-top duration-300 z-30`}>
+          <form onSubmit={handleProfileSave} className="flex items-center gap-4 max-w-lg mx-auto">
+            <div className="relative w-12 h-12 rounded-full shrink-0 overflow-hidden cursor-pointer border border-zinc-700 group" onClick={() => profileInputRef.current.click()}>
+              <img src={tempImg || myProfileImg} className="w-full h-full object-cover opacity-60 group-hover:opacity-30 transition-all" />
+              <span className="absolute inset-0 flex items-center justify-center text-[9px] font-black uppercase text-white">EDIT</span>
+            </div>
+            <input type="file" ref={profileInputRef} onChange={handleProfileImgUpload} accept="image/*" className="hidden" />
+            <input value={tempName} onChange={(e) => setTempName(e.target.value)} className={`flex-1 ${theme.input} px-4 py-3 rounded-xl text-xs outline-none focus:ring-1 focus:ring-indigo-500/50`} placeholder="NEW ID" />
+            <button type="submit" className="bg-indigo-600 text-white px-5 py-3 rounded-xl text-[10px] font-black uppercase shadow-lg active:scale-95 transition-all">SAVE</button>
+            <button type="button" onClick={() => setIsEditingProfile(false)} className={`${theme.textSub} text-[10px] font-bold px-2 hover:text-red-400`}>CANCEL</button>
+          </form>
+        </div>
+      )}
+
+      {/* 3. 기능 복구: 메시지 리스트 (시스템 메시지 미니멀 처리 포함) */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-hide z-0">
+        {messages.map((m) => (
+          m.type === "system" ? (
+             <div key={m.id} className="flex justify-center my-2">
+                {/* 톤앤매너 수정: 보일듯 안보일듯한 시스템 메시지 */}
+                <span className={`${isDarkMode ? 'text-zinc-600' : 'text-zinc-400'} text-[10px] font-medium tracking-tight px-3 py-1 bg-transparent`}>{m.text}</span>
+             </div>
+          ) : (
+            <div key={m.id} className={`flex gap-3 ${m.userName === myName ? 'flex-row-reverse' : ''}`}>
+              <img src={m.userPhoto} className="w-8 h-8 rounded-full shrink-0 object-cover border border-white/5 shadow-sm" />
+              <div className={`flex flex-col ${m.userName === myName ? 'items-end' : 'items-start'} max-w-[75%]`}>
+                <span className={`${theme.textSub} text-[9px] font-bold mb-1.5 px-1 uppercase opacity-80 tracking-widest`}>{m.userName}</span>
+                <div className={`group relative p-4 rounded-[20px] text-[13px] leading-relaxed shadow-sm ${m.userName === myName ? theme.bubbleMe + ' rounded-tr-[4px]' : `${theme.bubbleOther} rounded-tl-[4px]`}`}>
+                  {m.image && <img src={m.image} className="w-full rounded-xl mb-3 border border-white/10" />}
+                  {m.text && <p className="whitespace-pre-wrap break-words">{m.text}</p>}
+                  {/* 기능 복구: 내 메시지 삭제 버튼 */}
+                  {m.userName === myName && (
+                    <button onClick={() => deleteMsg(m.id)} className={`absolute -left-10 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-red-500 text-[10px] font-bold transition-all`}>DEL</button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )
         ))}
         <div ref={messagesEndRef} />
       </div>
 
-      <footer className="p-6">
-        <form onSubmit={sendMessage} className={`max-w-4xl mx-auto flex items-center gap-3 ${theme.input} border p-2 rounded-2xl focus-within:ring-1 focus-within:ring-blue-500/50 transition-all`}>
-          <button type="button" onClick={() => fileInputRef.current.click()} className="w-11 h-11 flex items-center justify-center rounded-xl text-zinc-500 hover:bg-blue-600 hover:text-white transition-all">+</button>
+      {/* 4. 기능 복구: 메시지 전송 푸터 (이미지 첨부 포함) */}
+      <footer className={`p-5 border-t ${isDarkMode ? 'border-white/5' : 'border-black/5'} z-10 bg-inherit`}>
+        <form onSubmit={sendMessage} className={`max-w-5xl mx-auto flex items-center gap-3 ${theme.input} p-1.5 rounded-2xl focus-within:ring-1 focus-within:ring-indigo-500/50 transition-all`}>
+          <button type="button" onClick={() => fileInputRef.current.click()} className={`w-10 h-10 flex items-center justify-center rounded-xl ${isDarkMode ? 'text-zinc-400 hover:bg-white/10' : 'text-zinc-500 hover:bg-black/5'} transition-all`}>
+            <span className="text-xl font-light">+</span>
+          </button>
           <input type="file" ref={fileInputRef} onChange={(e) => { const f=e.target.files[0]; if(f){const r=new FileReader(); r.onloadend=()=>sendMessage(null, r.result); r.readAsDataURL(f);}}} accept="image/*" className="hidden" />
-          <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="TYPE MESSAGE" className={`flex-1 bg-transparent px-2 text-sm ${theme.text} outline-none font-bold placeholder:font-normal`} />
-          <button type="submit" className="bg-blue-600 text-white px-8 py-3 rounded-xl font-black text-[11px] uppercase tracking-widest shadow-xl shadow-blue-500/20 active:scale-95">Send</button>
+          <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Type a message..." className={`flex-1 bg-transparent px-2 text-sm ${theme.textMain} outline-none font-medium placeholder:text-zinc-500`} />
+          <button type="submit" className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-black text-[11px] uppercase tracking-widest shadow-md shadow-indigo-500/20 active:scale-95 transition-all">Send</button>
         </form>
       </footer>
     </div>
