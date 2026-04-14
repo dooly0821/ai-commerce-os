@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react'; // useRef 추가
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from "firebase/firestore";
 import { GoogleGenerativeAI } from "@google/generative-ai";
@@ -21,11 +21,18 @@ export default function AetherFinalApp() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [isAiLoading, setIsAiLoading] = useState(false);
-  const [myDisplayName, setMyDisplayName] = useState(""); // 내 이름 저장
+  const [myDisplayName, setMyDisplayName] = useState("");
+  
+  // ✨ 스크롤을 위한 '기준점'을 만듭니다.
+  const messagesEndRef = useRef(null);
 
-  // 처음 접속할 때 이름을 물어봅니다.
+  // ✨ 메시지 목록이 바뀔 때마다 아래로 스크롤하는 함수
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
   useEffect(() => {
-    let name = prompt("사용하실 이름을 입력해주세요! (예: 민혁, 팀장님, 디자이너A)");
+    let name = prompt("사용하실 이름을 입력해주세요!");
     if (!name) name = "익명";
     setMyDisplayName(name);
 
@@ -36,13 +43,18 @@ export default function AetherFinalApp() {
     return () => unsubscribe();
   }, []);
 
+  // ✨ 메시지가 추가될 때마다 자동으로 스크롤 내려가게 설정
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
   const sendMessage = async (e) => {
     e.preventDefault();
     if (!input.trim()) return;
     try {
       await addDoc(collection(db, "messages"), {
         text: input,
-        user: myDisplayName, // 설정한 이름으로 전송!
+        user: myDisplayName,
         createdAt: serverTimestamp()
       });
       setInput("");
@@ -70,7 +82,7 @@ export default function AetherFinalApp() {
 
   return (
     <div className="flex flex-col h-screen bg-[#050505] text-white font-sans overflow-hidden">
-      <header className="p-5 border-b border-zinc-900 flex justify-between items-center bg-black/50 backdrop-blur-md">
+      <header className="p-5 border-b border-zinc-900 flex justify-between items-center bg-black/50 backdrop-blur-md sticky top-0 z-10">
         <div>
           <h1 className="text-xl font-black tracking-tighter text-blue-500 italic">AETHER LAB.</h1>
           <p className="text-[9px] text-zinc-500 uppercase font-bold tracking-widest">User: {myDisplayName}</p>
@@ -83,21 +95,34 @@ export default function AetherFinalApp() {
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto p-5 space-y-4">
+      {/* CHAT AREA */}
+      <div className="flex-1 overflow-y-auto p-5 space-y-4 scroll-smooth">
         {messages.map((m) => (
           <div key={m.id} className={`flex flex-col ${m.user === myDisplayName ? 'items-end' : 'items-start'}`}>
-            <span className="text-[9px] text-zinc-600 mb-1 font-bold">{m.user}</span>
-            <div className={`px-4 py-2 rounded-2xl max-w-[80%] text-sm ${m.user === myDisplayName ? 'bg-blue-600 shadow-lg shadow-blue-500/20' : 'bg-zinc-900 border border-zinc-800'}`}>
+            <span className="text-[9px] text-zinc-600 mb-1 font-bold px-1">{m.user}</span>
+            <div className={`px-4 py-2 rounded-2xl max-w-[80%] text-sm shadow-xl transition-all ${
+              m.user === myDisplayName 
+              ? 'bg-blue-600 rounded-tr-none shadow-blue-900/10' 
+              : 'bg-zinc-900 border border-zinc-800 rounded-tl-none'
+            }`}>
               {m.text}
             </div>
           </div>
         ))}
+        {/* ✨ 이 아래가 스크롤의 '도착지'가 됩니다 */}
+        <div ref={messagesEndRef} />
       </div>
 
-      <form onSubmit={sendMessage} className="p-5">
-        <div className="flex gap-2 max-w-4xl mx-auto">
-          <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="메시지를 입력하세요..." className="flex-1 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500/50" />
-          <button type="submit" className="bg-blue-600 px-5 py-3 rounded-xl font-bold text-xs hover:bg-blue-500 transition-all">SEND</button>
+      {/* INPUT AREA */}
+      <form onSubmit={sendMessage} className="p-5 bg-gradient-to-t from-black to-transparent">
+        <div className="flex gap-2 max-w-4xl mx-auto bg-zinc-900/50 p-1 rounded-2xl border border-zinc-800 backdrop-blur-md">
+          <input 
+            value={input} 
+            onChange={(e) => setInput(e.target.value)} 
+            placeholder="아이디어를 제안하세요..." 
+            className="flex-1 bg-transparent px-4 py-3 text-sm focus:outline-none" 
+          />
+          <button type="submit" className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold text-xs hover:bg-blue-500 transition-all">SEND</button>
         </div>
       </form>
     </div>
