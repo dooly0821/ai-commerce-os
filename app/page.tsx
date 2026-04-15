@@ -16,7 +16,7 @@ const firebaseConfig = {
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);
 
-export default function DoolyOS_Optimized() {
+export default function DoolyOS_Notifications() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [currentRoom, setCurrentRoom] = useState("");
@@ -27,23 +27,38 @@ export default function DoolyOS_Optimized() {
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [tempName, setTempName] = useState("");
   const [tempImg, setTempImg] = useState("");
-  
-  // ✨ 유저 목록 모달 상태
   const [showUserList, setShowUserList] = useState(false);
+  
+  // ✨ 인앱 토스트 알림 상태
+  const [toastMsg, setToastMsg] = useState(null);
 
   const canvasContainerRef = useRef(null);
   const scrollRef = useRef(null); 
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null); 
   const profileInputRef = useRef(null);
-  const isUserAtBottom = useRef(true);
   
-  // 마우스 스무딩을 위한 Ref
   const clickDataRef = useRef({ time: 0, x: 0.5, y: 0.5, targetIntensity: 0, currentIntensity: 0 });
+  const isDarkModeRef = useRef(isDarkMode);
+  
+  // ✨ 초기 로딩 시 과거 메시지 알림 폭탄 방지용
+  const isFirstLoad = useRef(true);
 
-  // 🎨 인트로 전용 반응형 WebGL 배경 (렉 완화 최적화 적용)
   useEffect(() => {
-    // 톡방에 들어가면 WebGL 렌더링 중지 (렉 방지)
+    isDarkModeRef.current = isDarkMode;
+  }, [isDarkMode]);
+
+  // ✨ 알림 권한 요청 및 팝업창 띄우기 기능
+  const openPopup = () => {
+    // OS 알림 권한 묻기
+    if ("Notification" in window && Notification.permission !== "granted") {
+      Notification.requestPermission();
+    }
+    window.open(window.location.href, 'DoolyOS_Popup', 'width=450,height=800,menubar=no,toolbar=no,location=no,status=no,scrollbars=yes');
+  };
+
+  // 🎨 인트로 반응형 WebGL 배경 (스무스 렌더링 유지)
+  useEffect(() => {
     if (currentRoom || !canvasContainerRef.current) return;
     
     canvasContainerRef.current.innerHTML = '';
@@ -62,7 +77,7 @@ export default function DoolyOS_Optimized() {
 
     const vsSource = `attribute vec2 position; varying vec2 vUv; void main() { vUv = position * 0.5 + 0.5; gl_Position = vec4(position, 0.0, 1.0); }`;
     const fsSource = `
-      precision mediump float; // 연산 속도 향상을 위해 highp -> mediump 변경
+      precision mediump float;
       uniform float uTime;
       uniform vec2 uResolution;
       uniform float uDarkMode;
@@ -71,8 +86,7 @@ export default function DoolyOS_Optimized() {
       uniform float uClickIntensity;
 
       float hash(vec3 p) {
-          p = fract(p * 0.3183099 + 0.1);
-          p *= 17.0;
+          p = fract(p * 0.3183099 + 0.1); p *= 17.0;
           return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
       }
       float noise(in vec3 x) {
@@ -83,7 +97,6 @@ export default function DoolyOS_Optimized() {
                      mix(mix(hash(i + vec3(0,0,1)), hash(i + vec3(1,0,1)), f.x),
                          mix(hash(i + vec3(0,1,1)), hash(i + vec3(1,1,1)), f.x), f.y), f.z);
       }
-      // 렉의 주범이었던 노이즈 루프 5회 -> 3회로 최적화
       float fbm(vec3 x) {
           float v = 0.0; float a = 0.5; vec3 shift = vec3(100);
           for (int i = 0; i < 3; ++i) {
@@ -110,14 +123,18 @@ export default function DoolyOS_Optimized() {
         vec3 ro = vec3(0.0, 0.0, 3.0);
         vec3 rd = normalize(vec3(uv, -1.0));
         
-        vec3 colorA = uDarkMode > 0.5 ? vec3(0.05, 0.0, 0.15) : vec3(0.85, 0.9, 0.98);
-        vec3 colorB = uDarkMode > 0.5 ? vec3(0.0, 0.15, 0.3) : vec3(0.95, 0.8, 0.9);
+        vec3 dayColorA = vec3(0.85, 0.92, 1.0);
+        vec3 dayColorB = vec3(0.98, 0.85, 0.95);
+        vec3 nightColorA = vec3(0.05, 0.0, 0.15);
+        vec3 nightColorB = vec3(0.0, 0.15, 0.3);
+
+        vec3 colorA = mix(dayColorA, nightColorA, uDarkMode);
+        vec3 colorB = mix(dayColorB, nightColorB, uDarkMode);
         
         if(uClickPos.x < 0.5) colorA += vec3(wave * 0.4, 0.0, wave * 0.2); 
         else colorB += vec3(0.0, wave * 0.3, wave * 0.4); 
 
         float den = 0.0; float t = 0.0;
-        // 렉의 주범이었던 레이마칭 스텝 수 30 -> 15회로 절반 최적화
         for(int i=0; i<15; i++) {
             vec3 p = ro + rd * t;
             p.xz *= rot(uTime * 0.1); p.xy *= rot(uTime * 0.05);
@@ -127,7 +144,7 @@ export default function DoolyOS_Optimized() {
         }
 
         vec3 finalColor = mix(colorA, colorB, uv.x + 0.5);
-        finalColor += vec3(0.5, 0.7, 1.0) * den * (uDarkMode > 0.5 ? 1.0 : 0.5);
+        finalColor += vec3(0.5, 0.7, 1.0) * den * mix(0.5, 1.0, uDarkMode);
         finalColor += vec3(1.0, 0.8, 0.5) * wave * 1.5;
 
         gl_FragColor = vec4(finalColor, 1.0);
@@ -157,6 +174,8 @@ export default function DoolyOS_Optimized() {
     const posLoc = gl.getAttribLocation(program, 'position');
 
     let animationId;
+    let currentDarkVal = isDarkModeRef.current ? 1.0 : 0.0;
+
     const render = () => {
       canvas.width = window.innerWidth; canvas.height = window.innerHeight;
       gl.viewport(0, 0, canvas.width, canvas.height);
@@ -164,13 +183,15 @@ export default function DoolyOS_Optimized() {
       
       const time = performance.now() * 0.001;
       
-      // 모션 스무딩 (Lerp) 적용하여 렉 체감 최소화
       clickDataRef.current.currentIntensity += (clickDataRef.current.targetIntensity - clickDataRef.current.currentIntensity) * 0.1;
       if (clickDataRef.current.targetIntensity > 0) clickDataRef.current.targetIntensity -= 0.02;
 
+      const targetDark = isDarkModeRef.current ? 1.0 : 0.0;
+      currentDarkVal += (targetDark - currentDarkVal) * 0.05;
+
       gl.uniform1f(locTime, time);
       gl.uniform2f(locRes, canvas.width, canvas.height);
-      gl.uniform1f(locDark, isDarkMode ? 1.0 : 0.0);
+      gl.uniform1f(locDark, currentDarkVal);
       gl.uniform1f(locClickTime, clickDataRef.current.time);
       gl.uniform2f(locClickPos, clickDataRef.current.x, clickDataRef.current.y);
       gl.uniform1f(locClickInt, clickDataRef.current.currentIntensity);
@@ -186,7 +207,7 @@ export default function DoolyOS_Optimized() {
       cancelAnimationFrame(animationId);
       window.removeEventListener('click', handleClick);
     };
-  }, [isDarkMode, currentRoom]); // currentRoom이 바뀌면 재실행/해제
+  }, [currentRoom]);
 
   useEffect(() => {
     const savedName = localStorage.getItem("aether-name");
@@ -213,6 +234,11 @@ export default function DoolyOS_Optimized() {
     setMyName(tempName);
     setMyProfileImg(finalImg);
     setIsEditingProfile(false); 
+    
+    // 로그인 완료 시 알림 권한 요청
+    if ("Notification" in window && Notification.permission !== "granted") {
+      Notification.requestPermission();
+    }
   };
 
   const handleProfileImgUpload = (e) => {
@@ -251,8 +277,13 @@ export default function DoolyOS_Optimized() {
     }
   };
 
+  // ✨ 메시지 구독 및 알림 발생 로직
   useEffect(() => {
     if (!currentRoom || !myName) return;
+    
+    // 방 입장 시 초기 로딩 상태 설정 (과거 알림 폭탄 방지)
+    isFirstLoad.current = true;
+    
     const hasEnteredKey = `entered_${currentRoom}_${myName}`;
     if (!sessionStorage.getItem(hasEnteredKey)) {
       addDoc(collection(db, "rooms", currentRoom, "messages"), {
@@ -260,10 +291,42 @@ export default function DoolyOS_Optimized() {
       });
       sessionStorage.setItem(hasEnteredKey, 'true');
     }
+
     const q = query(collection(db, "rooms", currentRoom, "messages"), orderBy("createdAt", "asc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      setMessages(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+      const allMsgs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      setMessages(allMsgs);
+
+      // 초기 로드 시에는 알림 무시
+      if (isFirstLoad.current) {
+        isFirstLoad.current = false;
+        return;
+      }
+
+      // 새로 추가된 메시지만 감지하여 알림 발생
+      snapshot.docChanges().forEach(change => {
+        if (change.type === 'added') {
+          const data = change.doc.data();
+          // 내가 보낸 메시지가 아니고 시스템 메시지가 아닐 때만 알림
+          if (data.userName !== myName && data.type === 'chat') {
+            const previewText = data.text ? data.text : "사진을 보냈습니다.";
+            
+            // 1. OS 기본 알림 (브라우저가 백그라운드여도 뜸)
+            if ("Notification" in window && Notification.permission === "granted") {
+              new Notification(`AetherOS: ${data.userName}`, {
+                body: previewText,
+                icon: data.userPhoto
+              });
+            }
+            
+            // 2. 인앱 토스트 알림 (UI 내부에서 뜸)
+            setToastMsg({ name: data.userName, text: previewText, photo: data.userPhoto });
+            setTimeout(() => setToastMsg(null), 4000); // 4초 뒤 사라짐
+          }
+        }
+      });
     });
+
     return () => {
       if (currentRoom && myName) {
         addDoc(collection(db, "rooms", currentRoom, "messages"), {
@@ -275,12 +338,6 @@ export default function DoolyOS_Optimized() {
     };
   }, [currentRoom, myName]);
 
-  useEffect(() => {
-    if (isUserAtBottom.current) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [messages]);
-
   const sendMessage = async (e, imgData = null) => {
     if (e) e.preventDefault();
     if ((!input.trim() && !imgData) || !myName) return;
@@ -291,7 +348,7 @@ export default function DoolyOS_Optimized() {
         text: currentInput, image: imgData, userName: myName, userPhoto: myProfileImg, type: "chat", createdAt: serverTimestamp()
       });
       await setDoc(doc(db, "rooms", currentRoom), { updatedAt: serverTimestamp() }, { merge: true });
-      isUserAtBottom.current = true;
+      // 내 메시지 전송 시에만 화면을 제일 밑으로 내림!
       setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
     } catch (error) {
       alert("🚨 전송 실패!");
@@ -299,7 +356,6 @@ export default function DoolyOS_Optimized() {
     }
   };
 
-  // ✨ 유저 목록 계산 (메시지 히스토리 기반)
   const activeUsers = useMemo(() => {
     const usersMap = new Map();
     messages.forEach(m => {
@@ -314,7 +370,7 @@ export default function DoolyOS_Optimized() {
   }, [messages]);
 
   const theme = {
-    chatBg: isDarkMode ? "bg-[#0a0a0f]" : "bg-[#f4f5f8]",
+    chatBg: isDarkMode ? "bg-[#0a0a0f]" : "bg-[#f4f6f9]",
     card: isDarkMode ? "bg-black/40 border border-white/10 shadow-2xl" : "bg-white/60 border border-black/5 shadow-xl",
     textMain: isDarkMode ? "text-white" : "text-[#1a1a1a]",
     textSub: isDarkMode ? "text-zinc-500" : "text-zinc-500",
@@ -323,10 +379,16 @@ export default function DoolyOS_Optimized() {
     bubbleOther: isDarkMode ? "bg-[#161720] border border-white/5 text-zinc-200" : "bg-white border border-black/5 text-zinc-800 shadow-sm",
   };
 
-  // 🖥️ UI: 로그인 화면
   if (!myName) return (
     <div className={`h-screen flex items-center justify-center p-6 relative overflow-hidden bg-black`}>
       <div ref={canvasContainerRef} className="absolute inset-0 z-0 pointer-events-auto" />
+      
+      <div className="absolute top-6 right-6 z-20">
+        <button onClick={openPopup} className={`text-[10px] font-black border ${isDarkMode ? 'border-indigo-500/50 text-indigo-400' : 'border-indigo-500/50 text-indigo-600'} px-4 py-2 rounded-full hover:bg-indigo-500 hover:text-white transition-all`}>
+          ↗ POP-OUT
+        </button>
+      </div>
+
       <div className={`${theme.card} p-12 w-full max-w-[440px] rounded-[40px] flex flex-col items-center gap-10 z-10 backdrop-blur-2xl animate-in zoom-in duration-500 pointer-events-auto`}>
           <div className="flex flex-col items-center w-full">
             <h1 className="ULTRA_PRISM_TEXT text-[5rem] font-black italic tracking-tighter uppercase select-none mb-1">DOOLY</h1>
@@ -362,10 +424,16 @@ export default function DoolyOS_Optimized() {
     </div>
   );
 
-  // 🖥️ UI: 방 목록 화면
   if (!currentRoom) return (
     <div className={`h-screen flex items-center justify-center p-6 relative overflow-hidden bg-black`}>
       <div ref={canvasContainerRef} className="absolute inset-0 z-0 pointer-events-auto" />
+      
+      <div className="absolute top-6 right-6 z-20">
+        <button onClick={openPopup} className={`text-[10px] font-black border ${isDarkMode ? 'border-indigo-500/50 text-indigo-400' : 'border-indigo-500/50 text-indigo-600'} px-4 py-2 rounded-full hover:bg-indigo-500 hover:text-white transition-all`}>
+          ↗ POP-OUT
+        </button>
+      </div>
+
       <div className={`${theme.card} p-10 w-full max-w-[440px] rounded-[40px] flex flex-col items-center gap-8 z-10 backdrop-blur-2xl animate-in fade-in zoom-in duration-500 pointer-events-auto`}>
           <div className="flex flex-col items-center w-full relative">
             <h1 className="ULTRA_PRISM_TEXT text-[3rem] font-black italic tracking-tighter uppercase select-none mb-6">DOOLY</h1>
@@ -395,17 +463,28 @@ export default function DoolyOS_Optimized() {
     </div>
   );
 
-  // 🖥️ UI: 채팅방 화면 (반응형 배경 제거 및 유저 목록 기능 추가)
   return (
     <div className={`flex flex-col h-screen ${theme.chatBg} transition-colors relative overflow-hidden`}>
-      {/* 정적 백그라운드 (가벼움) */}
+      
+      {/* ✨ 인앱 토스트 알림 UI (오른쪽 위에서 스르륵 나타남) */}
+      {toastMsg && (
+        <div className="absolute top-20 right-6 z-50 animate-in slide-in-from-right duration-300 pointer-events-none">
+          <div className={`flex items-center gap-4 p-4 rounded-2xl shadow-2xl backdrop-blur-2xl border ${isDarkMode ? 'bg-black/80 border-white/20' : 'bg-white/90 border-black/10'}`}>
+            <img src={toastMsg.photo} className="w-10 h-10 rounded-full border border-indigo-500/30 object-cover" />
+            <div className="flex flex-col">
+              <span className={`text-[10px] font-black uppercase tracking-widest text-indigo-500`}>{toastMsg.name}</span>
+              <span className={`text-xs font-bold ${theme.textMain} truncate max-w-[180px] mt-0.5`}>{toastMsg.text}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isDarkMode ? (
          <div className="absolute inset-0 z-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-900/20 via-[#0a0a0f] to-[#0a0a0f]"></div>
       ) : (
-         <div className="absolute inset-0 z-0 bg-white"></div>
+         <div className="absolute inset-0 z-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-100/50 via-[#f4f6f9] to-[#eef2f6]"></div>
       )}
 
-      {/* 헤더 */}
       <header className={`px-6 py-4 border-b ${isDarkMode ? 'border-white/5' : 'border-black/10'} flex justify-between items-center backdrop-blur-xl z-20 bg-inherit`}>
         <div className="flex items-center gap-5">
           <button onClick={() => setCurrentRoom("")} className={`${theme.textSub} text-[10px] font-bold uppercase hover:text-indigo-500 transition-colors`}>◀ EXIT</button>
@@ -418,7 +497,9 @@ export default function DoolyOS_Optimized() {
           </div>
         </div>
         <div className="flex items-center gap-4">
-          {/* ✨ 기능 추가: 유저 목록 버튼 */}
+          <button onClick={openPopup} className={`text-[9px] font-black border ${isDarkMode ? 'border-indigo-500/50 text-indigo-400' : 'border-indigo-500/50 text-indigo-600'} px-3 py-1.5 rounded-full hover:bg-indigo-500 hover:text-white transition-all`}>
+            ↗ POP-OUT
+          </button>
           <button onClick={() => setShowUserList(!showUserList)} className={`text-[9px] font-black border ${isDarkMode ? 'border-indigo-500/30 text-indigo-400' : 'border-indigo-500/50 text-indigo-600'} px-3 py-1.5 rounded-full hover:bg-indigo-500 hover:text-white transition-all`}>
             👥 USERS ({activeUsers.length})
           </button>
@@ -428,7 +509,6 @@ export default function DoolyOS_Optimized() {
         </div>
       </header>
 
-      {/* ✨ 유저 목록 사이드바/모달 */}
       {showUserList && (
         <div className={`absolute top-[70px] right-0 w-64 p-4 ${isDarkMode ? 'bg-black/80 border-white/10' : 'bg-white/90 border-black/10'} backdrop-blur-2xl border-b border-l shadow-2xl animate-in slide-in-from-right duration-300 z-30 max-h-[50vh] overflow-y-auto rounded-bl-3xl`}>
           <h3 className={`text-[10px] font-black ${theme.textSub} tracking-widest uppercase mb-4 pl-2`}>Participants</h3>
@@ -443,7 +523,6 @@ export default function DoolyOS_Optimized() {
         </div>
       )}
 
-      {/* 프로필 수정 모달 */}
       {isEditingProfile && (
         <div className={`absolute top-[70px] left-0 w-full p-6 ${isDarkMode ? 'bg-black/60' : 'bg-white/80'} backdrop-blur-2xl border-b ${isDarkMode ? 'border-white/10' : 'border-black/10'} animate-in slide-in-from-top duration-300 z-30`}>
           <form onSubmit={handleProfileSave} className="flex items-center gap-4 max-w-lg mx-auto">
@@ -459,7 +538,6 @@ export default function DoolyOS_Optimized() {
         </div>
       )}
 
-      {/* 메시지 리스트 */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-hide z-10 relative">
         {messages.map((m) => (
           m.type === "system" ? (
@@ -485,7 +563,6 @@ export default function DoolyOS_Optimized() {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* 메시지 전송 푸터 */}
       <footer className={`p-5 border-t ${isDarkMode ? 'border-white/5' : 'border-black/10'} z-20 backdrop-blur-xl bg-inherit`}>
         <form onSubmit={sendMessage} className={`max-w-5xl mx-auto flex items-center gap-3 ${theme.input} p-1.5 rounded-2xl focus-within:ring-1 focus-within:ring-indigo-500/50 transition-all`}>
           <button type="button" onClick={() => fileInputRef.current.click()} className={`w-10 h-10 flex items-center justify-center rounded-xl ${theme.textSub} hover:bg-zinc-500/20 transition-all`}>
