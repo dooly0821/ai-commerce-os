@@ -17,8 +17,7 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);
 const DEFAULT_AVATAR = "https://www.gstatic.com/images/branding/product/2x/avatar_anonymous_dark_64dp.png";
 
-export default function DoolyOS_Ultimate_Final() {
-  // --- 상태 관리 (전역 유지) ---
+export default function DoolyOS_PixelPerfect_Final() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [currentRoom, setCurrentRoom] = useState("");
@@ -28,17 +27,14 @@ export default function DoolyOS_Ultimate_Final() {
   const [myProfileImg, setMyProfileImg] = useState(""); 
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [tempName, setTempName] = useState("");
-  const [tempImg, setTempImg] = useState("");
   const [showUserList, setShowUserList] = useState(false);
   const [isNotiEnabled, setIsNotiEnabled] = useState(true);
   const [toastMsg, setToastMsg] = useState(null);
 
   const canvasContainerRef = useRef(null);
   const messagesEndRef = useRef(null);
-  const profileInputRef = useRef(null);
   const isDarkModeRef = useRef(isDarkMode); 
 
-  // --- 초기 로드 ---
   useEffect(() => {
     isDarkModeRef.current = isDarkMode;
     const savedName = localStorage.getItem("dooly-name");
@@ -47,13 +43,13 @@ export default function DoolyOS_Ultimate_Final() {
     const savedRooms = JSON.parse(localStorage.getItem("dooly-rooms") || "[]");
     const savedNoti = localStorage.getItem("dooly-noti");
     if (savedName) { setMyName(savedName); setTempName(savedName); }
-    if (savedImg) { setMyProfileImg(savedImg); setTempImg(savedImg); }
+    if (savedImg) { setMyProfileImg(savedImg); }
     if (savedTheme !== null) setIsDarkMode(savedTheme === "true");
     if (savedNoti !== null) setIsNotiEnabled(savedNoti === "true");
     setMyRooms(savedRooms);
   }, [isDarkMode]);
 
-  // --- 배경 셰이더 (전역 레이어 고정) ---
+  // 🎨 WebGL 전역 배경
   useEffect(() => {
     if (!canvasContainerRef.current) return;
     canvasContainerRef.current.innerHTML = '';
@@ -126,7 +122,6 @@ export default function DoolyOS_Ultimate_Final() {
     render();
   }, []);
 
-  // --- 메시지 구독 (알림 로직 통합) ---
   useEffect(() => {
     if (!currentRoom || !myName) return;
     const q = query(collection(db, "rooms", currentRoom, "messages"), orderBy("createdAt", "asc"));
@@ -134,8 +129,6 @@ export default function DoolyOS_Ultimate_Final() {
       const msgs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
       setMessages(msgs);
       setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
-
-      // 새 메시지 알림 (마지막 메시지가 내가 아닌 경우)
       const lastMsg = msgs[msgs.length - 1];
       if (lastMsg && lastMsg.userName !== myName && isNotiEnabled) {
         setToastMsg({ name: lastMsg.userName, text: lastMsg.text, photo: lastMsg.userPhoto });
@@ -161,20 +154,9 @@ export default function DoolyOS_Ultimate_Final() {
 
   return (
     <div className={`h-screen w-full relative overflow-hidden transition-colors duration-1000 ${isDarkMode ? 'bg-[#060608]' : 'bg-[#f0f2f5]'}`}>
-      {/* 1. 배경 레이어 (최하단 고정) */}
       <div ref={canvasContainerRef} className="absolute inset-0 z-0 pointer-events-none" />
 
-      {/* 2. 전역 컨트롤 헤더 */}
-      <div className="absolute top-6 right-8 z-50 flex gap-4">
-        <button onClick={() => { setIsDarkMode(!isDarkMode); localStorage.setItem("dooly-theme", (!isDarkMode).toString()); }} className="text-[10px] font-black border border-white/20 px-5 py-2.5 rounded-full backdrop-blur-xl text-white/80 hover:bg-white/20 transition-all uppercase tracking-widest">
-          {isDarkMode ? "Day Mode" : "Night Mode"}
-        </button>
-        <button onClick={() => { setIsNotiEnabled(!isNotiEnabled); localStorage.setItem("dooly-noti", (!isNotiEnabled).toString()); }} className="text-[10px] font-black border border-white/20 px-5 py-2.5 rounded-full backdrop-blur-xl text-white/80 hover:bg-white/20 transition-all uppercase tracking-widest">
-          {isNotiEnabled ? "Noti: On" : "Noti: Off"}
-        </button>
-      </div>
-
-      {/* 3. 하단 토스트 알림 (카톡 스타일) */}
+      {/* ✨ 3. 하단 토스트 알림 */}
       {toastMsg && (
         <div className="absolute bottom-24 right-8 z-[100] animate-in slide-in-from-bottom-4 duration-500 pointer-events-none">
           <div className="flex items-center gap-4 p-4 rounded-3xl bg-black/80 backdrop-blur-2xl border border-white/10 shadow-2xl">
@@ -187,76 +169,104 @@ export default function DoolyOS_Ultimate_Final() {
         </div>
       )}
 
-      {/* 4. 메인 컨텐츠 영역 */}
       <main className="relative h-full w-full z-10 flex flex-col items-center justify-center">
         {!currentRoom ? (
-          /* 로그인 & 방 목록 뷰 (강제 대칭 구조) */
-          <div className={`${theme.card} w-full max-w-[440px] rounded-[52px] flex flex-col items-center py-16 px-0 animate-in fade-in zoom-in duration-700`}>
-            <div className="w-[330px] flex flex-col items-center mx-auto">
-              {/* 타이틀 보정 (Optical Center) */}
-              <h1 className={`ULTRA_PRISM_TEXT text-[5.2rem] font-black italic tracking-tighter uppercase leading-none mb-10 transition-all duration-1000 ${isDarkMode ? 'night' : 'day'}`}>DOOLY</h1>
-              
-              {!myName ? (
-                <div className="w-full space-y-6">
-                  <input value={tempName} onChange={(e) => setTempName(e.target.value)} placeholder="ENTER IDENTITY" className={`w-full ${theme.input} px-8 py-5 rounded-[24px] text-center outline-none focus:ring-2 focus:ring-indigo-500/50 font-bold text-sm tracking-widest`} />
-                  <button onClick={() => { if(tempName.trim()){localStorage.setItem("dooly-name", tempName); setMyName(tempName);}}} className="w-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white py-5 rounded-[24px] font-black uppercase tracking-[0.2em] text-[12px] shadow-2xl active:scale-[0.97] transition-all">Start System</button>
-                </div>
-              ) : (
-                <div className="w-full flex flex-col items-center">
-                  <img src={myProfileImg || DEFAULT_AVATAR} className="w-24 h-24 rounded-full border-4 border-indigo-500/20 shadow-2xl mb-4 object-cover" />
-                  <p className={`${theme.textMain} font-black text-2xl mb-10 tracking-tight`}>{myName}</p>
-                  
-                  <div className="w-full flex flex-col h-[35vh]">
-                    <input onKeyDown={(e) => e.key === 'Enter' && joinRoom(e.currentTarget.value)} placeholder="SEARCH NODE" className={`w-full ${theme.input} px-6 py-5 rounded-[20px] text-center mb-6 font-bold text-xs tracking-[0.2em] outline-none`} />
-                    <div className="flex-1 overflow-y-auto space-y-3 no-scrollbar pb-4">
-                      {myRooms.map(room => (
-                        <button key={room} onClick={() => setCurrentRoom(room)} className={`w-full ${theme.input} px-6 py-5 rounded-[20px] grid grid-cols-[1fr_2fr_1fr] items-center hover:bg-indigo-500/10 transition-all group active:scale-[0.98]`}>
-                          <span className="invisible text-[9px] font-bold">Connect</span>
-                          <span className={`font-black ${theme.textMain} text-[14px] tracking-tight text-center`}>{room}</span>
-                          <span className="text-[10px] text-indigo-500 font-bold uppercase opacity-0 group-hover:opacity-100 transition-all text-right">Connect</span>
-                        </button>
-                      ))}
-                    </div>
+          <div className="flex flex-col items-center">
+            {/* ✨ 우측 상단 겹침 방지 헤더 (메인화면용) */}
+            <div className="absolute top-8 right-10 z-50 flex items-center gap-4">
+              <button onClick={() => { setIsDarkMode(!isDarkMode); localStorage.setItem("dooly-theme", (!isDarkMode).toString()); }} className="text-[10px] font-black border border-white/20 px-5 py-2.5 rounded-full backdrop-blur-xl text-white/80 hover:bg-white/20 transition-all uppercase tracking-widest">
+                {isDarkMode ? "Day Mode" : "Night Mode"}
+              </button>
+            </div>
+
+            <div className={`${theme.card} w-full max-w-[440px] rounded-[52px] flex flex-col items-center py-16 px-0 animate-in fade-in zoom-in duration-700`}>
+              <div className="w-[330px] flex flex-col items-center mx-auto">
+                <h1 className={`ULTRA_PRISM_TEXT text-[5.2rem] font-black italic tracking-tighter uppercase leading-none mb-10 transition-all duration-1000 ${isDarkMode ? 'night' : 'day'}`}>DOOLY</h1>
+                {!myName ? (
+                  <div className="w-full space-y-6">
+                    <input value={tempName} onChange={(e) => setTempName(e.target.value)} placeholder="ENTER IDENTITY" className={`w-full ${theme.input} px-8 py-5 rounded-[24px] text-center outline-none font-bold text-sm tracking-widest`} />
+                    <button onClick={() => { if(tempName.trim()){localStorage.setItem("dooly-name", tempName); setMyName(tempName);}}} className="w-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white py-5 rounded-[24px] font-black uppercase tracking-[0.2em] text-[12px] shadow-2xl">Start System</button>
                   </div>
-                  <button onClick={() => { localStorage.clear(); window.location.reload(); }} className="mt-8 text-zinc-500 text-[10px] font-black uppercase tracking-widest opacity-40 hover:opacity-100 hover:text-red-500 transition-all">Logout Session</button>
-                </div>
-              )}
+                ) : (
+                  <div className="w-full flex flex-col items-center">
+                    <div className="w-24 h-24 rounded-full border-4 border-indigo-500/20 shadow-2xl mb-4 overflow-hidden">
+                       <img src={myProfileImg || DEFAULT_AVATAR} className="w-full h-full object-cover" />
+                    </div>
+                    <p className={`${theme.textMain} font-black text-2xl mb-10 tracking-tight`}>{myName}</p>
+                    <div className="w-full flex flex-col h-[35vh]">
+                      <input onKeyDown={(e) => e.key === 'Enter' && joinRoom(e.currentTarget.value)} placeholder="SEARCH NODE" className={`w-full ${theme.input} px-6 py-5 rounded-[20px] text-center mb-6 font-bold text-xs tracking-[0.2em] outline-none`} />
+                      <div className="flex-1 overflow-y-auto space-y-3 no-scrollbar pb-4">
+                        {myRooms.map(room => (
+                          <button key={room} onClick={() => setCurrentRoom(room)} className={`w-full ${theme.input} px-6 py-5 rounded-[20px] grid grid-cols-[1fr_2fr_1fr] items-center hover:bg-indigo-500/10 transition-all group active:scale-[0.98]`}>
+                            <span className="invisible text-[9px] font-bold">Connect</span>
+                            <span className={`font-black ${theme.textMain} text-[14px] tracking-tight text-center`}>{room}</span>
+                            <span className="text-[10px] text-indigo-500 font-bold uppercase opacity-0 group-hover:opacity-100 transition-all text-right">Connect</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <button onClick={() => { localStorage.clear(); window.location.reload(); }} className="mt-8 text-zinc-500 text-[10px] font-black uppercase tracking-widest opacity-40 hover:opacity-100 hover:text-red-500 transition-all">Logout Session</button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         ) : (
-          /* 채팅방 뷰 (PC 가독성 강화) */
           <div className="h-full w-full flex flex-col animate-in fade-in slide-in-from-bottom-8 duration-700">
+            {/* ✨ 우측 상단 겹침 방지 헤더 (채팅방용) */}
             <header className={`px-10 py-6 border-b flex justify-between items-center backdrop-blur-2xl ${isDarkMode ? 'border-white/5 bg-black/20' : 'border-black/5 bg-white/40'}`}>
               <div className="flex items-center gap-6">
-                <button onClick={() => setCurrentRoom("")} className={`${theme.textSub} text-[11px] font-black tracking-widest hover:text-indigo-500 transition-colors uppercase`}>◀ Back to nodes</button>
+                <button onClick={() => setCurrentRoom("")} className={`${theme.textSub} text-[11px] font-black tracking-widest hover:text-indigo-500 transition-colors uppercase`}>◀ Back</button>
                 <h1 className="text-xl font-black italic text-indigo-500 uppercase tracking-tighter ml-2">{currentRoom}</h1>
               </div>
-              <div className="flex items-center gap-6">
-                <div className="flex flex-col items-end">
-                  <span className={`${theme.textMain} text-[13px] font-black tracking-tight`}>{myName}</span>
-                  <span className="text-[9px] text-indigo-400 font-bold uppercase tracking-widest">Connected</span>
+              
+              {/* 버튼 그룹과 프로필을 분리하여 겹침 방지 */}
+              <div className="flex items-center gap-8">
+                <div className="flex items-center gap-3">
+                  <button onClick={() => { setIsDarkMode(!isDarkMode); localStorage.setItem("dooly-theme", (!isDarkMode).toString()); }} className="text-[9px] font-black border border-white/10 px-4 py-2 rounded-full text-white/60 hover:bg-white/10 transition-all uppercase">
+                    {isDarkMode ? "DAY" : "NIGHT"}
+                  </button>
+                  <button onClick={() => setShowUserList(!showUserList)} className="text-[9px] font-black border border-white/10 px-4 py-2 rounded-full text-white/60 hover:bg-white/10 transition-all uppercase">
+                    Users
+                  </button>
                 </div>
-                <img src={myProfileImg || DEFAULT_AVATAR} className="w-12 h-12 rounded-full border border-white/10 shadow-lg" />
+                <div className="flex items-center gap-4 pl-6 border-l border-white/10">
+                  <span className={`${theme.textMain} text-[13px] font-black tracking-tight`}>{myName}</span>
+                  <div className="w-10 h-10 rounded-full overflow-hidden border border-indigo-500/20 shadow-lg">
+                    <img src={myProfileImg || DEFAULT_AVATAR} className="w-full h-full object-cover" />
+                  </div>
+                </div>
               </div>
             </header>
             
             <div className="flex-1 overflow-y-auto p-12 space-y-10 no-scrollbar w-full max-w-5xl mx-auto">
               {messages.map((m) => (
-                <div key={m.id} className={`flex gap-5 ${m.userName === myName ? 'flex-row-reverse' : 'flex-row'} animate-in fade-in duration-500`}>
-                  {/* 지능형 아바타 시스템 */}
-                  <img src={m.userPhoto || DEFAULT_AVATAR} className="w-11 h-11 rounded-full shrink-0 object-cover border border-white/10 shadow-lg self-end" />
-                  <div className={`flex flex-col ${m.userName === myName ? 'items-end' : 'items-start'} max-w-[70%]`}>
-                    <span className={`${theme.textSub} text-[11px] font-black mb-2 uppercase tracking-widest opacity-50`}>{m.userName}</span>
-                    <div className={`p-6 rounded-[28px] text-[15px] leading-relaxed shadow-2xl transition-all duration-700 ${m.userName === myName ? 'bg-gradient-to-br from-indigo-500 via-indigo-600 to-purple-600 text-white rounded-br-none' : isDarkMode ? 'bg-white/10 text-white border border-white/5 rounded-bl-none' : 'bg-white text-zinc-900 border border-black/5 rounded-bl-none'}`}>
-                      {m.text}
+                m.type === "system" ? (
+                  /* ✨ 접속 안내 문구 정가운데 정렬 */
+                  <div key={m.id} className="w-full flex justify-center my-4">
+                    <div className="px-6 py-2 rounded-full bg-white/5 border border-white/5 backdrop-blur-sm">
+                      <span className={`${theme.textSub} text-[11px] font-bold tracking-tight opacity-60`}>{m.text}</span>
                     </div>
                   </div>
-                </div>
+                ) : (
+                  <div key={m.id} className={`flex gap-5 ${m.userName === myName ? 'flex-row-reverse' : 'flex-row'} animate-in fade-in duration-500`}>
+                    {/* ✨ 프로필 동그라미 깨짐 방지 레이아웃 */}
+                    <div className="w-11 h-11 rounded-full shrink-0 overflow-hidden border border-white/10 shadow-lg self-end">
+                      <img src={m.userPhoto || DEFAULT_AVATAR} className="w-full h-full object-cover" />
+                    </div>
+                    <div className={`flex flex-col ${m.userName === myName ? 'items-end' : 'items-start'} max-w-[70%]`}>
+                      <span className={`${theme.textSub} text-[11px] font-black mb-2 uppercase tracking-widest opacity-50`}>{m.userName}</span>
+                      <div className={`p-6 rounded-[28px] text-[15px] leading-relaxed shadow-2xl transition-all duration-700 ${m.userName === myName ? 'bg-gradient-to-br from-indigo-500 via-indigo-600 to-purple-600 text-white rounded-br-none' : isDarkMode ? 'bg-white/10 text-white border border-white/5 rounded-bl-none' : 'bg-white text-zinc-900 border border-black/5 rounded-bl-none'}`}>
+                        {m.text}
+                      </div>
+                    </div>
+                  </div>
+                )
               ))}
               <div ref={messagesEndRef} />
             </div>
 
-            <footer className="p-10 backdrop-blur-3xl">
+            <footer className="p-10 backdrop-blur-3xl border-t border-white/5">
               <form onSubmit={(e) => { e.preventDefault(); if(input.trim()) addDoc(collection(db, "rooms", currentRoom, "messages"), { text: input, userName: myName, userPhoto: myProfileImg, createdAt: serverTimestamp() }); setInput(""); }} 
                     className={`max-w-4xl mx-auto flex gap-4 ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-white text-black shadow-2xl'} p-2 rounded-[28px] border transition-all focus-within:ring-4 focus-within:ring-indigo-500/20`}>
                 <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="DATA TRANSMISSION..." className="flex-1 bg-transparent px-8 outline-none text-[15px] font-bold text-inherit" />
@@ -266,6 +276,23 @@ export default function DoolyOS_Ultimate_Final() {
           </div>
         )}
       </main>
+
+      {/* 우측 유저 목록 사이드바 */}
+      {showUserList && (
+        <div className={`absolute top-28 right-10 w-72 p-6 rounded-[32px] ${theme.card} z-50 animate-in slide-in-from-right duration-500`}>
+          <h3 className={`${theme.textMain} text-[11px] font-black uppercase tracking-[0.2em] mb-6 opacity-50`}>Participants</h3>
+          <div className="space-y-4 max-h-[50vh] overflow-y-auto no-scrollbar">
+            {activeUsers.map((user, idx) => (
+              <div key={idx} className="flex items-center gap-4 group">
+                <div className="w-10 h-10 rounded-full overflow-hidden border border-white/10 shrink-0">
+                  <img src={user.photo || DEFAULT_AVATAR} className="w-full h-full object-cover" />
+                </div>
+                <span className={`${theme.textMain} font-bold text-sm tracking-tight`}>{user.name}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <style jsx global>{`
         @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
