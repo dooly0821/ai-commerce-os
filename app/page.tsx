@@ -17,7 +17,7 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);
 const DEFAULT_AVATAR = "https://www.gstatic.com/images/branding/product/2x/avatar_anonymous_dark_64dp.png";
 
-export default function DoolyOS_PixelPerfect_Final() {
+export default function DoolyOS_Final_Perfect() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [currentRoom, setCurrentRoom] = useState("");
@@ -25,7 +25,6 @@ export default function DoolyOS_PixelPerfect_Final() {
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [myName, setMyName] = useState(""); 
   const [myProfileImg, setMyProfileImg] = useState(""); 
-  const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [tempName, setTempName] = useState("");
   const [showUserList, setShowUserList] = useState(false);
   const [isNotiEnabled, setIsNotiEnabled] = useState(true);
@@ -49,7 +48,7 @@ export default function DoolyOS_PixelPerfect_Final() {
     setMyRooms(savedRooms);
   }, [isDarkMode]);
 
-  // 🎨 WebGL 전역 배경
+  // 🎨 WebGL 전역 배경 (끊김 방지)
   useEffect(() => {
     if (!canvasContainerRef.current) return;
     canvasContainerRef.current.innerHTML = '';
@@ -156,7 +155,7 @@ export default function DoolyOS_PixelPerfect_Final() {
     <div className={`h-screen w-full relative overflow-hidden transition-colors duration-1000 ${isDarkMode ? 'bg-[#060608]' : 'bg-[#f0f2f5]'}`}>
       <div ref={canvasContainerRef} className="absolute inset-0 z-0 pointer-events-none" />
 
-      {/* ✨ 3. 하단 토스트 알림 */}
+      {/* 🔔 토스트 알림 */}
       {toastMsg && (
         <div className="absolute bottom-24 right-8 z-[100] animate-in slide-in-from-bottom-4 duration-500 pointer-events-none">
           <div className="flex items-center gap-4 p-4 rounded-3xl bg-black/80 backdrop-blur-2xl border border-white/10 shadow-2xl">
@@ -171,92 +170,93 @@ export default function DoolyOS_PixelPerfect_Final() {
 
       <main className="relative h-full w-full z-10 flex flex-col items-center justify-center">
         {!currentRoom ? (
-          <div className="flex flex-col items-center">
-            {/* ✨ 우측 상단 겹침 방지 헤더 (메인화면용) */}
-            <div className="absolute top-8 right-10 z-50 flex items-center gap-4">
+          <div className="flex flex-col items-center w-full max-w-[440px]">
+            {/* ✨ 우측 상단 겹침 방지 헤더 */}
+            <div className="absolute top-8 right-10 z-50">
               <button onClick={() => { setIsDarkMode(!isDarkMode); localStorage.setItem("dooly-theme", (!isDarkMode).toString()); }} className="text-[10px] font-black border border-white/20 px-5 py-2.5 rounded-full backdrop-blur-xl text-white/80 hover:bg-white/20 transition-all uppercase tracking-widest">
                 {isDarkMode ? "Day Mode" : "Night Mode"}
               </button>
             </div>
 
-            <div className={`${theme.card} w-full max-w-[440px] rounded-[52px] flex flex-col items-center py-16 px-0 animate-in fade-in zoom-in duration-700`}>
+            <div className={`${theme.card} w-full rounded-[52px] flex flex-col items-center py-16 px-0 animate-in fade-in zoom-in duration-700`}>
               <div className="w-[330px] flex flex-col items-center mx-auto">
-                <h1 className={`ULTRA_PRISM_TEXT text-[5.2rem] font-black italic tracking-tighter uppercase leading-none mb-10 transition-all duration-1000 ${isDarkMode ? 'night' : 'day'}`}>DOOLY</h1>
+                {/* ✨ 타이틀 보정: 클리핑 방지 및 정렬 최적화 */}
+                <div className="relative mb-12 flex justify-center w-full">
+                  <h1 className={`ULTRA_PRISM_TEXT text-[5.2rem] font-black italic tracking-tighter uppercase leading-none transition-all duration-1000 ${isDarkMode ? 'night' : 'day'}`}>DOOLY</h1>
+                </div>
+
                 {!myName ? (
                   <div className="w-full space-y-6">
                     <input value={tempName} onChange={(e) => setTempName(e.target.value)} placeholder="ENTER IDENTITY" className={`w-full ${theme.input} px-8 py-5 rounded-[24px] text-center outline-none font-bold text-sm tracking-widest`} />
-                    <button onClick={() => { if(tempName.trim()){localStorage.setItem("dooly-name", tempName); setMyName(tempName);}}} className="w-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white py-5 rounded-[24px] font-black uppercase tracking-[0.2em] text-[12px] shadow-2xl">Start System</button>
+                    <button onClick={() => { if(tempName.trim()){localStorage.setItem("dooly-name", tempName); setMyName(tempName);}}} className="w-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white py-5 rounded-[24px] font-black uppercase tracking-[0.2em] text-[12px] shadow-2xl active:scale-[0.98] transition-transform">Start System</button>
                   </div>
                 ) : (
                   <div className="w-full flex flex-col items-center">
-                    <div className="w-24 h-24 rounded-full border-4 border-indigo-500/20 shadow-2xl mb-4 overflow-hidden">
+                    <div className="w-24 h-24 rounded-full border-4 border-indigo-500/20 shadow-2xl mb-5 overflow-hidden ring-1 ring-white/10">
                        <img src={myProfileImg || DEFAULT_AVATAR} className="w-full h-full object-cover" />
                     </div>
-                    <p className={`${theme.textMain} font-black text-2xl mb-10 tracking-tight`}>{myName}</p>
+                    <p className={`${theme.textMain} font-black text-2xl mb-12 tracking-tight`}>{myName}</p>
                     <div className="w-full flex flex-col h-[35vh]">
                       <input onKeyDown={(e) => e.key === 'Enter' && joinRoom(e.currentTarget.value)} placeholder="SEARCH NODE" className={`w-full ${theme.input} px-6 py-5 rounded-[20px] text-center mb-6 font-bold text-xs tracking-[0.2em] outline-none`} />
                       <div className="flex-1 overflow-y-auto space-y-3 no-scrollbar pb-4">
                         {myRooms.map(room => (
                           <button key={room} onClick={() => setCurrentRoom(room)} className={`w-full ${theme.input} px-6 py-5 rounded-[20px] grid grid-cols-[1fr_2fr_1fr] items-center hover:bg-indigo-500/10 transition-all group active:scale-[0.98]`}>
                             <span className="invisible text-[9px] font-bold">Connect</span>
-                            <span className={`font-black ${theme.textMain} text-[14px] tracking-tight text-center`}>{room}</span>
+                            <span className={`font-black ${theme.textMain} text-[14px] tracking-tight text-center truncate`}>{room}</span>
                             <span className="text-[10px] text-indigo-500 font-bold uppercase opacity-0 group-hover:opacity-100 transition-all text-right">Connect</span>
                           </button>
                         ))}
                       </div>
                     </div>
-                    <button onClick={() => { localStorage.clear(); window.location.reload(); }} className="mt-8 text-zinc-500 text-[10px] font-black uppercase tracking-widest opacity-40 hover:opacity-100 hover:text-red-500 transition-all">Logout Session</button>
+                    <button onClick={() => { localStorage.clear(); window.location.reload(); }} className="mt-10 text-zinc-500 text-[10px] font-black uppercase tracking-widest opacity-40 hover:opacity-100 hover:text-red-500 transition-all">Logout Session</button>
                   </div>
                 )}
               </div>
             </div>
           </div>
         ) : (
+          /* 📱 채팅방 뷰 (완벽 정렬 보정) */
           <div className="h-full w-full flex flex-col animate-in fade-in slide-in-from-bottom-8 duration-700">
-            {/* ✨ 우측 상단 겹침 방지 헤더 (채팅방용) */}
-            <header className={`px-10 py-6 border-b flex justify-between items-center backdrop-blur-2xl ${isDarkMode ? 'border-white/5 bg-black/20' : 'border-black/5 bg-white/40'}`}>
-              <div className="flex items-center gap-6">
+            <header className={`px-12 py-6 border-b flex justify-between items-center backdrop-blur-2xl ${isDarkMode ? 'border-white/5 bg-black/20' : 'border-black/5 bg-white/40'}`}>
+              <div className="flex items-center gap-8">
                 <button onClick={() => setCurrentRoom("")} className={`${theme.textSub} text-[11px] font-black tracking-widest hover:text-indigo-500 transition-colors uppercase`}>◀ Back</button>
-                <h1 className="text-xl font-black italic text-indigo-500 uppercase tracking-tighter ml-2">{currentRoom}</h1>
+                <div className="h-4 w-px bg-white/10" />
+                <h1 className="text-xl font-black italic text-indigo-500 uppercase tracking-tighter">{currentRoom}</h1>
               </div>
               
-              {/* 버튼 그룹과 프로필을 분리하여 겹침 방지 */}
-              <div className="flex items-center gap-8">
+              <div className="flex items-center gap-10">
                 <div className="flex items-center gap-3">
-                  <button onClick={() => { setIsDarkMode(!isDarkMode); localStorage.setItem("dooly-theme", (!isDarkMode).toString()); }} className="text-[9px] font-black border border-white/10 px-4 py-2 rounded-full text-white/60 hover:bg-white/10 transition-all uppercase">
+                  <button onClick={() => { setIsDarkMode(!isDarkMode); localStorage.setItem("dooly-theme", (!isDarkMode).toString()); }} className="text-[9px] font-black border border-white/10 px-5 py-2.5 rounded-full text-white/60 hover:bg-white/10 transition-all uppercase">
                     {isDarkMode ? "DAY" : "NIGHT"}
                   </button>
-                  <button onClick={() => setShowUserList(!showUserList)} className="text-[9px] font-black border border-white/10 px-4 py-2 rounded-full text-white/60 hover:bg-white/10 transition-all uppercase">
-                    Users
-                  </button>
                 </div>
-                <div className="flex items-center gap-4 pl-6 border-l border-white/10">
+                <div className="flex items-center gap-5 pl-8 border-l border-white/10 h-10">
                   <span className={`${theme.textMain} text-[13px] font-black tracking-tight`}>{myName}</span>
-                  <div className="w-10 h-10 rounded-full overflow-hidden border border-indigo-500/20 shadow-lg">
+                  <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-indigo-500/20 shadow-lg ring-1 ring-white/10">
                     <img src={myProfileImg || DEFAULT_AVATAR} className="w-full h-full object-cover" />
                   </div>
                 </div>
               </div>
             </header>
             
-            <div className="flex-1 overflow-y-auto p-12 space-y-10 no-scrollbar w-full max-w-5xl mx-auto">
+            <div className="flex-1 overflow-y-auto px-12 py-12 space-y-12 no-scrollbar w-full max-w-5xl mx-auto flex flex-col">
               {messages.map((m) => (
                 m.type === "system" ? (
-                  /* ✨ 접속 안내 문구 정가운데 정렬 */
-                  <div key={m.id} className="w-full flex justify-center my-4">
-                    <div className="px-6 py-2 rounded-full bg-white/5 border border-white/5 backdrop-blur-sm">
-                      <span className={`${theme.textSub} text-[11px] font-bold tracking-tight opacity-60`}>{m.text}</span>
+                  /* ✨ 시스템 문구: 절대적인 중앙 정렬 보정 */
+                  <div key={m.id} className="w-full flex justify-center py-4">
+                    <div className="px-8 py-2.5 rounded-full bg-white/5 border border-white/5 backdrop-blur-md shadow-sm">
+                      <span className={`${theme.textSub} text-[11px] font-black tracking-widest opacity-60 uppercase`}>{m.text}</span>
                     </div>
                   </div>
                 ) : (
-                  <div key={m.id} className={`flex gap-5 ${m.userName === myName ? 'flex-row-reverse' : 'flex-row'} animate-in fade-in duration-500`}>
-                    {/* ✨ 프로필 동그라미 깨짐 방지 레이아웃 */}
-                    <div className="w-11 h-11 rounded-full shrink-0 overflow-hidden border border-white/10 shadow-lg self-end">
+                  <div key={m.id} className={`flex gap-6 ${m.userName === myName ? 'flex-row-reverse' : 'flex-row'} animate-in fade-in duration-500`}>
+                    {/* ✨ 프로필 원형 보정 및 깨짐 방지 */}
+                    <div className="w-11 h-11 rounded-full shrink-0 overflow-hidden border-2 border-white/10 shadow-lg self-end ring-1 ring-black/10">
                       <img src={m.userPhoto || DEFAULT_AVATAR} className="w-full h-full object-cover" />
                     </div>
                     <div className={`flex flex-col ${m.userName === myName ? 'items-end' : 'items-start'} max-w-[70%]`}>
-                      <span className={`${theme.textSub} text-[11px] font-black mb-2 uppercase tracking-widest opacity-50`}>{m.userName}</span>
-                      <div className={`p-6 rounded-[28px] text-[15px] leading-relaxed shadow-2xl transition-all duration-700 ${m.userName === myName ? 'bg-gradient-to-br from-indigo-500 via-indigo-600 to-purple-600 text-white rounded-br-none' : isDarkMode ? 'bg-white/10 text-white border border-white/5 rounded-bl-none' : 'bg-white text-zinc-900 border border-black/5 rounded-bl-none'}`}>
+                      <span className={`${theme.textSub} text-[11px] font-black mb-2.5 uppercase tracking-widest opacity-50 px-1`}>{m.userName}</span>
+                      <div className={`p-7 rounded-[32px] text-[15px] leading-relaxed shadow-2xl transition-all duration-700 ${m.userName === myName ? 'bg-gradient-to-br from-indigo-500 via-indigo-600 to-purple-600 text-white rounded-br-none' : isDarkMode ? 'bg-white/10 text-white border border-white/5 rounded-bl-none' : 'bg-white text-zinc-900 border border-black/5 rounded-bl-none shadow-md'}`}>
                         {m.text}
                       </div>
                     </div>
@@ -268,43 +268,30 @@ export default function DoolyOS_PixelPerfect_Final() {
 
             <footer className="p-10 backdrop-blur-3xl border-t border-white/5">
               <form onSubmit={(e) => { e.preventDefault(); if(input.trim()) addDoc(collection(db, "rooms", currentRoom, "messages"), { text: input, userName: myName, userPhoto: myProfileImg, createdAt: serverTimestamp() }); setInput(""); }} 
-                    className={`max-w-4xl mx-auto flex gap-4 ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-white text-black shadow-2xl'} p-2 rounded-[28px] border transition-all focus-within:ring-4 focus-within:ring-indigo-500/20`}>
-                <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="DATA TRANSMISSION..." className="flex-1 bg-transparent px-8 outline-none text-[15px] font-bold text-inherit" />
-                <button type="submit" className="bg-indigo-600 text-white px-10 py-5 rounded-[22px] font-black text-xs uppercase tracking-widest shadow-xl active:scale-95 transition-all hover:bg-indigo-500">Transmit</button>
+                    className={`max-w-4xl mx-auto flex gap-4 ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-white text-black shadow-2xl'} p-2 rounded-[32px] border transition-all focus-within:ring-4 focus-within:ring-indigo-500/20`}>
+                <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="DATA TRANSMISSION..." className="flex-1 bg-transparent px-8 outline-none text-[15px] font-black text-inherit placeholder:opacity-30" />
+                <button type="submit" className="bg-indigo-600 text-white px-10 py-5 rounded-[26px] font-black text-xs uppercase tracking-widest shadow-xl active:scale-95 transition-all hover:bg-indigo-500">Transmit</button>
               </form>
             </footer>
           </div>
         )}
       </main>
 
-      {/* 우측 유저 목록 사이드바 */}
-      {showUserList && (
-        <div className={`absolute top-28 right-10 w-72 p-6 rounded-[32px] ${theme.card} z-50 animate-in slide-in-from-right duration-500`}>
-          <h3 className={`${theme.textMain} text-[11px] font-black uppercase tracking-[0.2em] mb-6 opacity-50`}>Participants</h3>
-          <div className="space-y-4 max-h-[50vh] overflow-y-auto no-scrollbar">
-            {activeUsers.map((user, idx) => (
-              <div key={idx} className="flex items-center gap-4 group">
-                <div className="w-10 h-10 rounded-full overflow-hidden border border-white/10 shrink-0">
-                  <img src={user.photo || DEFAULT_AVATAR} className="w-full h-full object-cover" />
-                </div>
-                <span className={`${theme.textMain} font-bold text-sm tracking-tight`}>{user.name}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       <style jsx global>{`
         @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
         * { font-family: 'Pretendard', sans-serif; box-sizing: border-box; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
         .ULTRA_PRISM_TEXT {
           background: linear-gradient(120deg, #ff0055 0%, #ff5500 15%, #ffcc00 30%, #00ff66 50%, #00ccff 70%, #7700ff 85%, #ff0055 100%);
           background-size: 200% auto; color: transparent; -webkit-background-clip: text; background-clip: text; 
-          animation: prism 4s linear infinite; padding-right: 0.18em; position: relative;
+          animation: prism 4s linear infinite; 
+          padding: 0 0.2em; /* ✨ 이탤릭체 클리핑 방지 패딩 */
+          position: relative;
+          overflow: visible;
         }
-        .ULTRA_PRISM_TEXT::before { content: "DOOLY"; position: absolute; left: 0; top: 0; z-index: -1; filter: blur(30px); opacity: 0.4; }
+        .ULTRA_PRISM_TEXT::before { content: "DOOLY"; position: absolute; left: 0.2em; top: 0; z-index: -1; filter: blur(30px); opacity: 0.4; }
         .ULTRA_PRISM_TEXT.night::before { color: white; text-shadow: 0 0 40px rgba(255,255,255,0.4); }
         .ULTRA_PRISM_TEXT.day::before { color: black; text-shadow: 0 0 30px rgba(0,0,0,0.1); }
         @keyframes prism { to { background-position: 200% center; } }
