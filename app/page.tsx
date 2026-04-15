@@ -38,6 +38,7 @@ export default function Page() {
   const profileInputRef = useRef(null);
   const particleInstance = useRef(null);
 
+  // 초기 마운트 및 로컬 데이터 복원
   useEffect(() => {
     setIsMounted(true);
     const savedName = localStorage.getItem("dooly-name");
@@ -73,6 +74,14 @@ export default function Page() {
     return () => { if (script.parentNode) document.head.removeChild(script); };
   }, [isMounted]);
 
+  // 2. 유저 실시간 정보 추출
+  const activeUsers = useMemo(() => {
+    const usersMap = new Map();
+    messages.forEach(m => { if(m.userName) usersMap.set(m.userName, m.userPhoto); });
+    return Array.from(usersMap, ([name, photo]) => ({ name, photo }));
+  }, [messages]);
+
+  // 8. 메시지 구독 및 알림
   useEffect(() => {
     if (!currentRoom || !myName) return;
     const q = query(collection(db, "rooms", currentRoom, "messages"), orderBy("createdAt", "asc"));
@@ -87,12 +96,6 @@ export default function Page() {
       }
     });
   }, [currentRoom, myName, isNotiEnabled]);
-
-  const activeUsers = useMemo(() => {
-    const usersMap = new Map();
-    messages.forEach(m => { if(m.userName) usersMap.set(m.userName, m.userPhoto); });
-    return Array.from(usersMap, ([name, photo]) => ({ name, photo }));
-  }, [messages]);
 
   const sendMessage = async (e, imgData = null) => {
     if (e) e.preventDefault();
@@ -135,7 +138,7 @@ export default function Page() {
 
       <main className="relative h-full w-full z-10 flex flex-col items-center justify-center">
         {!currentRoom ? (
-          /* ✨ 5. [INTRO] 글래스모피즘 인트로 */
+          /* ✨ 5. [INTRO] 인트로 */
           <div className={`${theme.card} w-full max-w-[450px] rounded-[56px] flex flex-col items-center py-20 animate-in fade-in zoom-in duration-700`}>
             <div className="w-[340px] flex flex-col items-center mx-auto">
               <div className="relative mb-14 overflow-visible flex justify-center w-full">
@@ -143,10 +146,10 @@ export default function Page() {
               </div>
 
               {!myName ? (
-                /* 4. 인트로 프로필 깨짐 방지 */
                 <div className="w-full space-y-6">
+                  {/* 4. 인트로 프로필 깨짐 방지 */}
                   <div className="w-28 h-28 rounded-full bg-white/5 border border-white/10 flex items-center justify-center cursor-pointer overflow-hidden mx-auto mb-4 group aspect-square shrink-0" onClick={() => profileInputRef.current.click()}>
-                    {tempImg ? <img src={tempImg} className="w-full h-full object-cover" /> : <img src={DEFAULT_AVATAR} className="w-full h-full object-cover opacity-20" />}
+                    <img src={tempImg || DEFAULT_AVATAR} onError={(e) => e.currentTarget.src = DEFAULT_AVATAR} className="w-full h-full object-cover rounded-full" />
                   </div>
                   <input type="file" ref={profileInputRef} className="hidden" accept="image/*" onChange={(e) => { const f=e.target.files[0]; if(f){ const r=new FileReader(); r.onloadend=()=>setTempImg(r.result); r.readAsDataURL(f); }}} />
                   <input value={tempName} onChange={(e) => setTempName(e.target.value)} placeholder="ENTER IDENTITY" className={`w-full ${theme.input} px-8 py-5 rounded-[26px] text-center outline-none font-bold text-sm tracking-widest`} />
@@ -175,9 +178,9 @@ export default function Page() {
             </div>
           </div>
         ) : (
-          /* 📱 8. [CHAT] 버그 제로 레이아웃 */
+          /* 📱 8. [CHAT] 레이아웃 완결 */
           <div className="h-full w-full flex flex-col animate-in fade-in duration-700">
-            {/* 헤더 겹침 방지 3분할 그리드 */}
+            {/* 헤더: 겹침 방지 그리드 */}
             <header className={`px-12 py-7 border-b grid grid-cols-3 items-center backdrop-blur-2xl ${isDarkMode ? 'border-white/5 bg-black/30' : 'border-black/5 bg-white/50'}`}>
               <div className="flex justify-start">
                 <button onClick={() => setCurrentRoom("")} className="text-white/40 text-[11px] font-black hover:text-indigo-500 transition-colors uppercase tracking-widest">◀ Back</button>
@@ -199,7 +202,7 @@ export default function Page() {
             <div className="flex-1 overflow-y-auto px-12 py-16 space-y-12 no-scrollbar w-full max-w-6xl mx-auto flex flex-col">
               {messages.map((m) => (
                 m.type === "system" ? (
-                  /* 시스템 안내 정중앙 보정 */
+                  /* 8. 시스템 안내 정중앙 보정 */
                   <div key={m.id} className="w-full flex justify-center py-6">
                     <div className="px-10 py-3 rounded-full bg-white/5 border border-white/5 backdrop-blur-md">
                       <span className="text-white/40 text-[11px] font-black tracking-[0.2em] uppercase">{m.text}</span>
@@ -213,7 +216,7 @@ export default function Page() {
                     </div>
                     <div className={`flex flex-col ${m.userName === myName ? 'items-end' : 'items-start'} max-w-[75%]`}>
                       <span className="text-white/30 text-[10px] font-black mb-3 px-2 uppercase tracking-widest">{m.userName}</span>
-                      <div className={`p-8 rounded-[36px] text-[15px] leading-relaxed shadow-2xl ${m.userName === myName ? 'bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-700 text-white rounded-br-none' : isDarkMode ? 'bg-white/10 text-white border border-white/5 rounded-bl-none' : 'bg-white text-zinc-900 border border-black/5 rounded-bl-none shadow-xl'}`}>
+                      <div className={`p-8 rounded-[36px] text-[15px] leading-relaxed shadow-2xl ${m.userName === myName ? 'bg-gradient-to-br from-indigo-600 to-purple-700 text-white rounded-br-none' : isDarkMode ? 'bg-white/10 text-white border border-white/5 rounded-bl-none' : 'bg-white text-zinc-900 border border-black/5 rounded-bl-none shadow-xl'}`}>
                         {m.image && <img src={m.image} className="w-full max-w-md rounded-2xl mb-4 border border-white/10 shadow-lg" />}
                         {m.text && <p className="whitespace-pre-wrap">{m.text}</p>}
                       </div>
@@ -258,9 +261,9 @@ export default function Page() {
         .ULTRA_PRISM_TEXT {
           background: linear-gradient(120deg, #ff0055, #ffcc00, #00ff66, #00ccff, #7700ff);
           background-size: 200% auto; color: transparent; -webkit-background-clip: text; background-clip: text; 
-          animation: prism 4s linear infinite; padding-right: 0.3em; position: relative; overflow: visible;
+          animation: prism 4s linear infinite; padding-right: 0.35em; position: relative; overflow: visible;
         }
-        .ULTRA_PRISM_TEXT::before { content: "DOOLY"; position: absolute; left: 0.3em; top: 0; z-index: -1; filter: blur(35px); opacity: 0.4; }
+        .ULTRA_PRISM_TEXT::before { content: "DOOLY"; position: absolute; left: 0.35em; top: 0; z-index: -1; filter: blur(35px); opacity: 0.4; }
         @keyframes prism { to { background-position: 200% center; } }
       `}</style>
     </div>
