@@ -16,7 +16,7 @@ const firebaseConfig = {
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);
 
-export default function DoolyOS_Premium() {
+export default function DoolyOS_Final_Premium() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [currentRoom, setCurrentRoom] = useState("");
@@ -39,13 +39,13 @@ export default function DoolyOS_Premium() {
   const profileInputRef = useRef(null);
   
   const clickDataRef = useRef({ time: 0, x: 0.5, y: 0.5, targetIntensity: 0, currentIntensity: 0 });
-  const isDarkModeRef = useRef(isDarkMode);
-  const isNotiEnabledRef = useRef(isNotiEnabled);
+  const isDarkModeRef = useRef(isDarkMode); // 셰이더 내부 루프용 Ref
   const isFirstLoad = useRef(true);
 
+  // 최신 상태를 Ref로 유지 (useEffect 의존성 문제 방지)
   useEffect(() => { isDarkModeRef.current = isDarkMode; }, [isDarkMode]);
-  useEffect(() => { isNotiEnabledRef.current = isNotiEnabled; }, [isNotiEnabled]);
 
+  // 초기 설정 로드
   useEffect(() => {
     const savedName = localStorage.getItem("aether-name");
     const savedImg = localStorage.getItem("aether-profile");
@@ -81,7 +81,7 @@ export default function DoolyOS_Premium() {
     window.open(window.location.href, 'DoolyOS_Popup', 'width=450,height=800,menubar=no,toolbar=no,location=no,status=no,scrollbars=yes');
   };
 
-  // 🎨 WebGL 반응형 배경
+  // 🎨 WebGL 반응형 배경 (유기적 모션 전환 로직 추가)
   useEffect(() => {
     if (currentRoom || !canvasContainerRef.current) return;
     
@@ -104,10 +104,11 @@ export default function DoolyOS_Premium() {
       precision mediump float;
       uniform float uTime;
       uniform vec2 uResolution;
-      uniform float uDarkMode;
+      uniform float uDarkMode; // ✨ 스무스하게 변하는 값 (0.0 ~ 1.0)
       uniform float uClickTime;
       uniform vec2 uClickPos;
       uniform float uClickIntensity;
+      uniform float uRotationSpeed; // ✨ 테마별 유기적 모션 변수
 
       float hash(vec3 p) {
           p = fract(p * 0.3183099 + 0.1); p *= 17.0;
@@ -147,8 +148,11 @@ export default function DoolyOS_Premium() {
         vec3 ro = vec3(0.0, 0.0, 3.0);
         vec3 rd = normalize(vec3(uv, -1.0));
         
+        // ✨ 데이/나이트 모드 색상 부드럽게 믹스 (uDarkMode에 반응)
+        // 데이 모드: 화사하고 투명한 스카이 블루/로즈 핑크
         vec3 dayColorA = vec3(0.85, 0.92, 1.0);
         vec3 dayColorB = vec3(0.98, 0.85, 0.95);
+        // 나이트 모드: 영롱한 퍼플 심해/다크 블루
         vec3 nightColorA = vec3(0.05, 0.0, 0.15);
         vec3 nightColorB = vec3(0.0, 0.15, 0.3);
 
@@ -161,15 +165,18 @@ export default function DoolyOS_Premium() {
         float den = 0.0; float t = 0.0;
         for(int i=0; i<15; i++) {
             vec3 p = ro + rd * t;
-            p.xz *= rot(uTime * 0.1); p.xy *= rot(uTime * 0.05);
+            // ✨ 테마별 유기적 회전 모션
+            p.xz *= rot(uTime * uRotationSpeed); p.xy *= rot(uTime * (uRotationSpeed * 0.5));
             float d = fbm(p * 1.5 + uTime * 0.2) - 0.5;
-            if(d > 0.0) den += d * 0.15;
+            if(d > 0.0) den += d * mix(0.1, 0.2, uDarkMode); // 질감(Density)도 스무스하게 보간
             t += 0.2;
         }
 
         vec3 finalColor = mix(colorA, colorB, uv.x + 0.5);
-        finalColor += vec3(0.5, 0.7, 1.0) * den * mix(0.5, 1.0, uDarkMode);
-        finalColor += vec3(1.0, 0.8, 0.5) * wave * 1.5;
+        // ✨ 볼류메트릭 클라우드 색상도 테마에 맞춰 보간
+        vec3 denColor = mix(vec3(1.0, 0.95, 0.9), vec3(0.5, 0.7, 1.0), uDarkMode);
+        finalColor += denColor * den;
+        finalColor += vec3(1.0, 0.8, 0.5) * wave * mix(1.0, 1.5, uDarkMode);
 
         gl_FragColor = vec4(finalColor, 1.0);
       }
@@ -195,10 +202,12 @@ export default function DoolyOS_Premium() {
     const locClickTime = gl.getUniformLocation(program, 'uClickTime');
     const locClickPos = gl.getUniformLocation(program, 'uClickPos');
     const locClickInt = gl.getUniformLocation(program, 'uClickIntensity');
+    const locRotSpeed = gl.getUniformLocation(program, 'uRotationSpeed'); // ✨ 유기적 모션 uniform
     const posLoc = gl.getAttribLocation(program, 'position');
 
     let animationId;
     let currentDarkVal = isDarkModeRef.current ? 1.0 : 0.0;
+    let currentRotSpeed = isDarkModeRef.current ? 0.1 : 0.15; // 초기 회전 속도
 
     const render = () => {
       canvas.width = window.innerWidth; canvas.height = window.innerHeight;
@@ -207,15 +216,22 @@ export default function DoolyOS_Premium() {
       
       const time = performance.now() * 0.001;
       
+      // 모션 및 테마 스무딩 로직
       clickDataRef.current.currentIntensity += (clickDataRef.current.targetIntensity - clickDataRef.current.currentIntensity) * 0.1;
       if (clickDataRef.current.targetIntensity > 0) clickDataRef.current.targetIntensity -= 0.02;
 
+      // ✨ 데이/나이트 스무스 페이드 애니메이션 로직 (Lerp)
       const targetDark = isDarkModeRef.current ? 1.0 : 0.0;
-      currentDarkVal += (targetDark - currentDarkVal) * 0.05;
+      currentDarkVal += (targetDark - currentDarkVal) * 0.05; // 색상 보간 속도
+
+      // ✨ 유기적 회전 모션 보간 (나이트: 0.1, 데이: 0.15)
+      const targetRotSpeed = isDarkModeRef.current ? 0.1 : 0.15;
+      currentRotSpeed += (targetRotSpeed - currentRotSpeed) * 0.02; // 모션 보간은 약간 더 천천히
 
       gl.uniform1f(locTime, time);
       gl.uniform2f(locRes, canvas.width, canvas.height);
       gl.uniform1f(locDark, currentDarkVal);
+      gl.uniform1f(locRotSpeed, currentRotSpeed); // ✨ 보간된 회전 속도 전송
       gl.uniform1f(locClickTime, clickDataRef.current.time);
       gl.uniform2f(locClickPos, clickDataRef.current.x, clickDataRef.current.y);
       gl.uniform1f(locClickInt, clickDataRef.current.currentIntensity);
@@ -231,57 +247,7 @@ export default function DoolyOS_Premium() {
       cancelAnimationFrame(animationId);
       window.removeEventListener('click', handleClick);
     };
-  }, [currentRoom]);
-
-  const handleProfileSave = (e) => {
-    if (e) e.preventDefault();
-    if (!tempName.trim()) return alert("아이디를 입력해주세요!");
-    const finalImg = tempImg || myProfileImg || "https://www.gstatic.com/images/branding/product/2x/avatar_anonymous_dark_64dp.png";
-    localStorage.setItem("aether-name", tempName);
-    localStorage.setItem("aether-profile", finalImg);
-    setMyName(tempName);
-    setMyProfileImg(finalImg);
-    setIsEditingProfile(false); 
-    if (isNotiEnabled && "Notification" in window && Notification.permission !== "granted") {
-      Notification.requestPermission();
-    }
-  };
-
-  const handleProfileImgUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => setTempImg(reader.result);
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const joinRoom = async (roomName) => {
-    const name = roomName.trim();
-    if (!name) return;
-    if (!myRooms.includes(name)) {
-      const updatedRooms = [name, ...myRooms];
-      setMyRooms(updatedRooms);
-      localStorage.setItem("aether-my-rooms", JSON.stringify(updatedRooms));
-    }
-    await setDoc(doc(db, "rooms", name), { name: name, updatedAt: serverTimestamp() }, { merge: true });
-    setCurrentRoom(name);
-  };
-
-  const leaveRoom = (e, roomName) => {
-    e.stopPropagation();
-    if (confirm(`'${roomName}' 노드에서 나가시겠습니까?`)) {
-      const updatedRooms = myRooms.filter(r => r !== roomName);
-      setMyRooms(updatedRooms);
-      localStorage.setItem("aether-my-rooms", JSON.stringify(updatedRooms));
-    }
-  };
-
-  const deleteMsg = async (id) => {
-    if (confirm("메시지를 삭제하시겠습니까?")) {
-      await deleteDoc(doc(db, "rooms", currentRoom, "messages", id));
-    }
-  };
+  }, [currentRoom]); // isDarkMode 의존성 제거 (내부 루프에서 스무딩)
 
   useEffect(() => {
     if (!currentRoom || !myName) return;
@@ -311,12 +277,14 @@ export default function DoolyOS_Premium() {
           if (data.userName !== myName && data.type === 'chat') {
             const previewText = data.text ? data.text : "사진을 보냈습니다.";
             
+            // 알림 권한 체크 (PC/팝업 공통)
             if ("Notification" in window && Notification.permission === "granted") {
               if (document.hidden) {
                 const noti = new Notification(`DOOLY OS: ${data.userName}`, { body: previewText, icon: data.userPhoto });
                 noti.onclick = function() { window.focus(); this.close(); };
               }
             }
+            // 인앱 토스트 알림
             setToastMsg({ name: data.userName, text: previewText, photo: data.userPhoto });
             setTimeout(() => setToastMsg(null), 4000); 
           }
@@ -365,6 +333,7 @@ export default function DoolyOS_Premium() {
     return Array.from(usersMap, ([name, photo]) => ({ name, photo }));
   }, [messages]);
 
+  // ✨ 테마 설정: transition 속성 추가로 스무스하게 전환
   const theme = {
     chatBg: isDarkMode ? "bg-[#0a0a0f]" : "bg-[#f4f6f9]",
     card: `transition-all duration-700 ease-in-out ${isDarkMode ? 'bg-black/40 border border-white/10 shadow-2xl' : 'bg-white/60 border border-black/5 shadow-xl'}`,
@@ -384,9 +353,9 @@ export default function DoolyOS_Premium() {
         <button onClick={toggleNoti} className={`text-[10px] font-black border transition-all duration-700 ${isDarkMode ? 'border-white/10 text-white/70' : 'border-black/10 text-black/70'} px-4 py-2 rounded-full hover:bg-indigo-500 hover:text-white backdrop-blur-md`}>
           {isNotiEnabled ? "🔔 ON" : "🔕 OFF"}
         </button>
-        <button onClick={openPopup} className={`text-[10px] font-black border transition-all duration-700 ${isDarkMode ? 'border-white/10 text-white/70' : 'border-black/10 text-black/70'} px-4 py-2 rounded-full hover:bg-indigo-500 hover:text-white backdrop-blur-md`}>
+        <button onClick={openPopup} className={`text-[10px] font-black border transition-all duration-700 ${isDarkMode ? 'border-indigo-500/50 text-indigo-400' : 'border-indigo-500/50 text-indigo-600'} px-3 py-1.5 rounded-full hover:bg-indigo-500 hover:text-white`}>
           ↗ POP-OUT
-        </button>
+          </button>
       </div>
 
       <div className={`${theme.card} p-10 sm:p-12 w-full max-w-[420px] rounded-[40px] flex flex-col items-center gap-8 z-10 backdrop-blur-2xl animate-in zoom-in duration-500 pointer-events-auto`}>
@@ -411,12 +380,11 @@ export default function DoolyOS_Premium() {
                   <button onClick={() => { localStorage.clear(); location.reload(); }} className="text-zinc-500 text-[9px] font-bold uppercase tracking-widest hover:text-red-500 transition-colors">Logout</button>
                 </div>
                 
-                {/* ✨ 정렬 어긋남 완전 해결: 컨테이너 여백(px-1, pr-2) 모두 제거하여 100% 동일한 폭 유지 */}
+                {/* ✨ 룸 리스트 정렬 픽셀 퍼펙트 유지 */}
                 <div className="w-full max-w-[380px] flex flex-col h-[35vh] mt-6">
                   <input onKeyDown={(e) => e.key === 'Enter' && joinRoom(e.currentTarget.value)} placeholder="SEARCH NODE (ENTER)" className={`w-full ${theme.input} px-6 py-4 rounded-xl text-center mb-6 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-bold tracking-widest backdrop-blur-md`} />
                   <h2 className={`text-[10px] font-black text-left ${theme.textMain} tracking-widest uppercase mb-3 px-1 opacity-70`}>My Nodes</h2>
                   
-                  {/* 스크롤바 영역(pr-2)을 없애고 버튼이 온전히 w-full을 차지하도록 수정 */}
                   <div className="flex-1 w-full overflow-y-auto space-y-2 scrollbar-hide pb-4">
                     {myRooms.map((roomName) => (
                       <div key={roomName} className="relative group w-full">
@@ -455,10 +423,9 @@ export default function DoolyOS_Premium() {
     </div>
   );
 
-  // 🖥️ UI: 채팅방 화면
+  // 🖥️ UI: 채팅방 화면 (transition 속성 적용)
   return (
     <div className={`flex flex-col h-screen ${theme.chatBg} transition-all duration-700 relative overflow-hidden`}>
-      
       {/* 데이/나이트 정적 백그라운드 전환 (스무스) */}
       {isDarkMode ? (
          <div className="absolute inset-0 z-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-900/20 via-[#0a0a0f] to-[#0a0a0f] transition-opacity duration-700"></div>
