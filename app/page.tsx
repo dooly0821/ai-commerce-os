@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { initializeApp, getApps, getApp } from "firebase/app"; 
 import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from "firebase/firestore";
 
-// 🔥 Firebase 설정 (안전한 초기화)
+// 🔥 Firebase 설정
 const firebaseConfig = {
   apiKey: "AIzaSyD9-u-Qz2EWRDAzr7NAuUE6I7sGyCP0Cdc",
   authDomain: "dooly-66736.firebaseapp.com",
@@ -18,7 +18,6 @@ const db = getFirestore(app);
 const DEFAULT_AVATAR = "https://www.gstatic.com/images/branding/product/2x/avatar_anonymous_dark_64dp.png";
 
 export default function Page() {
-  // --- [상태 관리: 8대 요구사항 통합] ---
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [currentRoom, setCurrentRoom] = useState("");
@@ -29,7 +28,6 @@ export default function Page() {
   const [tempName, setTempName] = useState("");
   const [tempImg, setTempImg] = useState("");
   const [showUserList, setShowUserList] = useState(false);
-  const [isNotiEnabled, setIsNotiEnabled] = useState(true);
   const [toastMsg, setToastMsg] = useState(null);
   const [isMounted, setIsMounted] = useState(false);
 
@@ -39,7 +37,7 @@ export default function Page() {
   const profileInputRef = useRef(null);
   const particleInstance = useRef(null);
 
-  // --- [로직 1: 초기화 및 SSR 대응] ---
+  // 초기 마운트 시 데이터 복원
   useEffect(() => {
     setIsMounted(true);
     const savedName = localStorage.getItem("dooly-name");
@@ -52,37 +50,31 @@ export default function Page() {
     setMyRooms(savedRooms);
   }, []);
 
-  // --- [로직 2: 6, 7. 파티클 및 마우스 모션 엔진 (빌드 에러 완벽 차단)] ---
+  // 6, 7. 파티클 엔진 로드 (빌드 에러 우회 방식)
   useEffect(() => {
     if (!isMounted) return;
-    
-    let script = document.getElementById('three-attraction-script');
-    if (!script) {
-      script = document.createElement("script");
-      script.id = 'three-attraction-script';
-      script.src = "https://cdn.jsdelivr.net/npm/threejs-components@0.0.26/build/cursors/attraction1.min.js";
-      script.type = "module";
-      document.head.appendChild(script);
-    }
 
-    const initEngine = async () => {
+    const loadParticles = async () => {
       try {
-        const module = await import("https://cdn.jsdelivr.net/npm/threejs-components@0.0.26/build/cursors/attraction1.min.js");
+        // Webpack 빌드 시스템이 해석하지 못하도록 런타임 import 실행
+        const loader = new Function('return import("https://cdn.jsdelivr.net/npm/threejs-components@0.0.26/build/cursors/attraction1.min.js")');
+        const module = await loader();
+        const AttractionCursor = module.default;
+        
         if (!particleInstance.current && canvasRef.current) {
-          particleInstance.current = module.default(canvasRef.current, {
+          particleInstance.current = AttractionCursor(canvasRef.current, {
             particles: { attractionIntensity: 0.85, size: 1.2 },
           });
         }
-      } catch (e) { console.error("Particle Error:", e); }
+      } catch (e) {
+        console.error("Particle Load Fail:", e);
+      }
     };
 
-    script.onload = initEngine;
-    if (script.complete) initEngine(); // 이미 로드된 경우 대응
-
-    return () => { /* 스크립트 삭제 시 엔진 꼬임 방지를 위해 유지 */ };
+    loadParticles();
   }, [isMounted]);
 
-  // --- [로직 3: 실시간 동기화] ---
+  // 실시간 메시지 구독
   useEffect(() => {
     if (!currentRoom || !myName) return;
     const q = query(collection(db, "rooms", currentRoom, "messages"), orderBy("createdAt", "asc"));
@@ -91,12 +83,12 @@ export default function Page() {
       setMessages(msgs);
       setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
       const lastMsg = msgs[msgs.length - 1];
-      if (lastMsg && lastMsg.userName !== myName && isNotiEnabled) {
+      if (lastMsg && lastMsg.userName !== myName) {
         setToastMsg({ name: lastMsg.userName, text: lastMsg.text, photo: lastMsg.userPhoto });
         setTimeout(() => setToastMsg(null), 4000);
       }
     });
-  }, [currentRoom, myName, isNotiEnabled]);
+  }, [currentRoom, myName]);
 
   const activeUsers = useMemo(() => {
     const usersMap = new Map();
@@ -104,7 +96,6 @@ export default function Page() {
     return Array.from(usersMap, ([name, photo]) => ({ name, photo }));
   }, [messages]);
 
-  // --- [로직 4: 기능 함수들] ---
   const sendMessage = async (e, imgData = null) => {
     if (e) e.preventDefault();
     if (!input.trim() && !imgData) return;
@@ -125,20 +116,20 @@ export default function Page() {
     <div className={`h-screen w-full relative overflow-hidden transition-colors duration-1000 ${isDarkMode ? 'bg-[#060608]' : 'bg-[#f0f2f5]'}`}>
       <canvas ref={canvasRef} className="absolute inset-0 z-0 pointer-events-none" />
 
-      {/* 🔔 알림 레이어 (Persistent) */}
+      {/* 🔔 1. 알림 (Persistent) */}
       {toastMsg && (
         <div className="absolute bottom-28 right-10 z-[100] animate-in slide-in-from-bottom-4 duration-500">
           <div className="flex items-center gap-4 p-5 rounded-[32px] bg-black/80 backdrop-blur-2xl border border-white/10 shadow-2xl">
             <img src={toastMsg.photo || DEFAULT_AVATAR} onError={(e) => e.currentTarget.src = DEFAULT_AVATAR} className="w-11 h-11 rounded-full object-cover shrink-0 aspect-square" />
             <div className="flex flex-col">
               <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">{toastMsg.name}</span>
-              <span className="text-white text-sm font-bold truncate max-w-[180px] mt-0.5">{toastMsg.text || "사진 전송됨"}</span>
+              <span className="text-white text-sm font-bold truncate max-w-[200px] mt-0.5">{toastMsg.text || "사진 전송됨"}</span>
             </div>
           </div>
         </div>
       )}
 
-      {/* 1. 팝업 & 컨트롤 (절대 위치 고정) */}
+      {/* ⚙️ 컨트롤 (Pop-out, Theme) */}
       <div className="absolute top-8 right-10 z-50 flex gap-4">
         <button onClick={() => window.open(window.location.href, '_blank', 'width=450,height=850')} className="text-[10px] font-black border border-white/20 px-5 py-2.5 rounded-full backdrop-blur-xl text-white/70 hover:bg-white/20 transition-all uppercase tracking-widest">↗ Pop-out</button>
         <button onClick={() => setIsDarkMode(!isDarkMode)} className="text-[10px] font-black border border-white/20 px-5 py-2.5 rounded-full backdrop-blur-xl text-white/70 hover:bg-white/20 transition-all uppercase tracking-widest">{isDarkMode ? "Day" : "Night"}</button>
@@ -146,7 +137,7 @@ export default function Page() {
 
       <main className="relative h-full w-full z-10 flex flex-col items-center justify-center">
         {!currentRoom ? (
-          /* ✨ 5. [INTRO] 인트로 화면 */
+          /* ✨ 5. [INTRO] */
           <div className={`${theme.card} w-full max-w-[450px] rounded-[56px] flex flex-col items-center py-20 animate-in fade-in zoom-in duration-700`}>
             <div className="w-[340px] flex flex-col items-center mx-auto">
               <div className="relative mb-14 overflow-visible flex justify-center w-full">
@@ -154,29 +145,29 @@ export default function Page() {
               </div>
 
               {!myName ? (
-                /* 4. 인트로 프로필 찌그러짐 방지 */
+                /* 4. 인트로 프로필 보정 */
                 <div className="w-full space-y-6">
                   <div className="w-28 h-28 rounded-full bg-white/5 border border-white/10 flex items-center justify-center cursor-pointer overflow-hidden mx-auto mb-4 group aspect-square shrink-0" onClick={() => profileInputRef.current.click()}>
                     <img src={tempImg || DEFAULT_AVATAR} onError={(e) => e.currentTarget.src = DEFAULT_AVATAR} className="w-full h-full object-cover rounded-full" />
                   </div>
                   <input type="file" ref={profileInputRef} className="hidden" accept="image/*" onChange={(e) => { const f=e.target.files[0]; if(f){ const r=new FileReader(); r.onloadend=()=>setTempImg(r.result); r.readAsDataURL(f); }}} />
                   <input value={tempName} onChange={(e) => setTempName(e.target.value)} placeholder="ENTER IDENTITY" className={`w-full ${theme.input} px-8 py-5 rounded-[26px] text-center outline-none font-bold text-sm tracking-widest`} />
-                  <button onClick={() => { if(tempName.trim()){localStorage.setItem("dooly-name", tempName); localStorage.setItem("dooly-profile", tempImg); setMyName(tempName); setMyProfileImg(tempImg);}}} className="w-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white py-5 rounded-[26px] font-black uppercase tracking-[0.2em] text-[12px] shadow-2xl active:scale-95 transition-all">Start System</button>
+                  <button onClick={() => { if(tempName.trim()){localStorage.setItem("dooly-name", tempName); localStorage.setItem("dooly-profile", tempImg); setMyName(tempName); setMyProfileImg(tempImg);}}} className="w-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white py-5 rounded-[26px] font-black uppercase tracking-[0.2em] text-[12px] shadow-2xl">Start System</button>
                 </div>
               ) : (
                 <div className="w-full flex flex-col items-center">
-                  <div className="relative mb-5 aspect-square shrink-0">
-                    <img src={myProfileImg || DEFAULT_AVATAR} onError={(e) => e.currentTarget.src = DEFAULT_AVATAR} className="w-24 h-24 rounded-full border-4 border-indigo-500/20 shadow-2xl object-cover" />
+                  <div className="relative mb-6 aspect-square shrink-0">
+                    <img src={myProfileImg || DEFAULT_AVATAR} onError={(e) => e.currentTarget.src = DEFAULT_AVATAR} className="w-24 h-24 rounded-full border-4 border-indigo-500/20 shadow-2xl object-cover shrink-0" />
                   </div>
                   <p className={`${theme.text} font-black text-2xl mb-12 tracking-tight`}>{myName}</p>
                   <div className="w-full h-[38vh] flex flex-col">
-                    <input onKeyDown={(e) => e.key === 'Enter' && (setMyRooms([...new Set([e.currentTarget.value, ...myRooms])]), setCurrentRoom(e.currentTarget.value))} placeholder="SEARCH NODE" className={`w-full ${theme.input} px-6 py-5 rounded-[22px] text-center mb-6 font-bold text-xs tracking-widest outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all`} />
+                    <input onKeyDown={(e) => e.key === 'Enter' && (setMyRooms([...new Set([e.currentTarget.value, ...myRooms])]), setCurrentRoom(e.currentTarget.value))} placeholder="SEARCH NODE" className={`w-full ${theme.input} px-6 py-5 rounded-[22px] text-center mb-6 font-bold text-xs tracking-widest outline-none`} />
                     <div className="flex-1 overflow-y-auto space-y-3 no-scrollbar pb-4">
                       {myRooms.map(room => (
-                        <button key={room} onClick={() => setCurrentRoom(room)} className={`w-full ${theme.input} px-6 py-5 rounded-[22px] grid grid-cols-[1fr_2fr_1fr] items-center hover:bg-indigo-500/10 group active:scale-[0.98] transition-all`}>
+                        <button key={room} onClick={() => setCurrentRoom(room)} className={`w-full ${theme.input} px-6 py-5 rounded-[22px] grid grid-cols-[1fr_2fr_1fr] items-center hover:bg-indigo-500/10 transition-all`}>
                           <span className="invisible text-[9px]">Connect</span>
                           <span className={`font-black ${theme.text} text-[14px] text-center truncate px-2`}>{room}</span>
-                          <span className="text-[10px] text-indigo-500 font-bold opacity-0 group-hover:opacity-100 transition-all text-right">Connect</span>
+                          <span className="text-[10px] text-indigo-500 font-bold opacity-0 group-hover:opacity-100 text-right">Connect</span>
                         </button>
                       ))}
                     </div>
@@ -186,17 +177,17 @@ export default function Page() {
             </div>
           </div>
         ) : (
-          /* 📱 8. [CHAT] 채팅 화면 (그리드 레이아웃 고정) */
+          /* 📱 8. [CHAT] 레이아웃 완결 */
           <div className="h-full w-full flex flex-col animate-in fade-in duration-700">
-            {/* 헤더 겹침 방지: 3분할 그리드 및 min-width 보정 */}
+            {/* 헤더 겹침 방지 그리드 */}
             <header className={`px-12 py-7 border-b grid grid-cols-3 items-center backdrop-blur-2xl ${isDarkMode ? 'border-white/5 bg-black/30' : 'border-black/5 bg-white/50'}`}>
-              <div className="flex justify-start items-center min-w-0">
+              <div className="flex justify-start items-center">
                 <button onClick={() => setCurrentRoom("")} className="text-white/40 text-[11px] font-black hover:text-indigo-500 transition-colors uppercase tracking-widest shrink-0">◀ Back</button>
               </div>
-              <div className="flex justify-center items-center min-w-0">
+              <div className="flex justify-center items-center">
                 <h1 className="text-2xl font-black italic text-indigo-500 uppercase tracking-tighter truncate max-w-full px-4">{currentRoom}</h1>
               </div>
-              <div className="flex justify-end items-center gap-6 min-w-0">
+              <div className="flex justify-end items-center gap-6">
                 {/* 2. 유저 확인 버튼 */}
                 <button onClick={() => setShowUserList(!showUserList)} className="hidden sm:block text-[10px] font-black border border-white/10 px-5 py-2.5 rounded-full text-white/60 hover:bg-white/10 uppercase transition-all shrink-0">Users ({activeUsers.length})</button>
                 <div className="flex items-center gap-4 pl-6 border-l border-white/10 h-10 shrink-0">
@@ -210,7 +201,7 @@ export default function Page() {
             <div className="flex-1 overflow-y-auto px-12 py-16 space-y-12 no-scrollbar w-full max-w-6xl mx-auto flex flex-col">
               {messages.map((m) => (
                 m.type === "system" ? (
-                  /* 8. 시스템 안내 정중앙 보정 */
+                  /* 시스템 안내 정중앙 보정 */
                   <div key={m.id} className="w-full flex justify-center py-6">
                     <div className="px-10 py-3 rounded-full bg-white/5 border border-white/5 backdrop-blur-md">
                       <span className="text-white/40 text-[11px] font-black tracking-[0.2em] uppercase">{m.text}</span>
@@ -247,7 +238,7 @@ export default function Page() {
         )}
       </main>
 
-      {/* 2. 유저 확인 사이드바 복구 */}
+      {/* 2. 유저 확인 사이드바 */}
       {showUserList && (
         <div className={`absolute top-32 right-12 w-80 p-8 rounded-[40px] ${theme.card} z-50 animate-in slide-in-from-right duration-500 shadow-2xl border border-white/10`}>
           <h3 className="text-indigo-400 text-[11px] font-black uppercase tracking-[0.2em] mb-8">Connected Nodes</h3>
