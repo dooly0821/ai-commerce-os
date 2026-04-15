@@ -16,7 +16,7 @@ const firebaseConfig = {
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);
 
-export default function DoolyOS_Master_Layout() {
+export default function DoolyOS_PerfectSymmetry() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [currentRoom, setCurrentRoom] = useState("");
@@ -214,7 +214,6 @@ export default function DoolyOS_Master_Layout() {
       clickDataRef.current.currentIntensity += (clickDataRef.current.targetIntensity - clickDataRef.current.currentIntensity) * 0.1;
       if (clickDataRef.current.targetIntensity > 0) clickDataRef.current.targetIntensity -= 0.02;
 
-      // 더 부드러운 Lerp 계수 적용 (0.05 -> 0.03)
       const targetDark = isDarkModeRef.current ? 1.0 : 0.0;
       currentDarkVal += (targetDark - currentDarkVal) * 0.03; 
 
@@ -374,7 +373,6 @@ export default function DoolyOS_Master_Layout() {
     return Array.from(usersMap, ([name, photo]) => ({ name, photo }));
   }, [messages]);
 
-  // ✨ 테마 설정: cubic-bezier로 더 부드러운 트랜지션 (눈 피로 완화)
   const theme = {
     chatBg: isDarkMode ? "bg-[#0a0a0f]" : "bg-[#f4f6f9]",
     card: `transition-all duration-[800ms] ease-[cubic-bezier(0.4,0,0.2,1)] ${isDarkMode ? 'bg-black/40 border border-white/10 shadow-2xl' : 'bg-white/60 border border-black/5 shadow-xl'}`,
@@ -399,50 +397,51 @@ export default function DoolyOS_Master_Layout() {
         </button>
       </div>
 
-      {/* ✨ 마스터 레이아웃: 부모만 max-w 지정. 자식들은 전부 w-full로 100% 대칭 일치 */}
-      <div className={`${theme.card} p-10 sm:p-12 w-full max-w-[420px] rounded-[40px] flex flex-col items-center gap-8 z-10 backdrop-blur-2xl animate-in zoom-in duration-500 pointer-events-auto`}>
-          <div className="flex flex-col items-center w-full relative">
+      {/* 전체 카드 컨테이너 */}
+      <div className={`${theme.card} p-8 sm:p-10 w-full max-w-[420px] rounded-[40px] flex flex-col items-center z-10 backdrop-blur-2xl animate-in zoom-in duration-500 pointer-events-auto`}>
+          
+          {/* ✨ 절대 대칭 이너 컨테이너: 모든 요소의 최대 너비를 320px로 강제 고정하여 오차 원천 차단 */}
+          <div className="w-full max-w-[320px] flex flex-col items-center mx-auto relative">
             
-            {/* 타이틀 쏠림 현상 해결: px-4 제거하고 CSS 내부 padding 처리로 중앙 완벽 정렬 */}
-            <h1 className={`ULTRA_PRISM_TEXT text-[4.5rem] font-black italic tracking-tighter uppercase select-none mb-2 transition-all duration-[800ms] ${isDarkMode ? 'night-mode' : 'day-mode'}`}>DOOLY</h1>
+            <h1 className={`ULTRA_PRISM_TEXT text-[4.5rem] font-black italic tracking-tighter uppercase select-none mb-6 transition-all duration-[800ms] ${isDarkMode ? 'night-mode' : 'day-mode'}`}>DOOLY</h1>
             
             {!myName ? (
-              <form onSubmit={handleProfileSave} className="w-full flex flex-col items-center space-y-6 mt-4">
+              <form onSubmit={handleProfileSave} className="w-full flex flex-col items-center space-y-5">
                 <div className={`w-24 h-24 rounded-full ${theme.input} overflow-hidden flex items-center justify-center cursor-pointer hover:border-indigo-500 transition-all`} onClick={() => profileInputRef.current.click()}>
                   {tempImg ? <img src={tempImg} className="w-full h-full object-cover" /> : <span className="text-zinc-500 text-[10px] font-bold tracking-widest">PHOTO +</span>}
                 </div>
                 <input type="file" ref={profileInputRef} onChange={handleProfileImgUpload} accept="image/*" className="hidden" />
-                <input value={tempName} onChange={(e) => setTempName(e.target.value)} placeholder="ENTER ID" className={`w-full ${theme.input} px-6 py-4 rounded-xl text-center focus:outline-none focus:ring-1 focus:ring-indigo-500 text-sm font-bold tracking-widest backdrop-blur-md`} />
-                <button type="submit" className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white py-4 rounded-xl font-black uppercase tracking-[0.2em] text-[12px] shadow-lg active:scale-95 transition-all">Start System</button>
+                {/* 이너 컨테이너를 가득 채우는 w-full */}
+                <input value={tempName} onChange={(e) => setTempName(e.target.value)} placeholder="ENTER ID" className={`w-full ${theme.input} px-6 py-4 rounded-xl text-center focus:outline-none focus:ring-1 focus:ring-indigo-500 text-sm font-bold tracking-widest backdrop-blur-md box-border`} />
+                <button type="submit" className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white py-4 rounded-xl font-black uppercase tracking-[0.2em] text-[12px] shadow-lg active:scale-95 transition-all box-border">Start System</button>
               </form>
             ) : (
-              <>
-                <img src={myProfileImg} className={`transition-all duration-[800ms] w-20 h-20 rounded-full object-cover shadow-xl border-2 ${isDarkMode ? 'border-white/20' : 'border-indigo-500/20'} mb-3 mt-2`} />
+              <div className="w-full flex flex-col items-center">
+                <img src={myProfileImg} className={`transition-all duration-[800ms] w-20 h-20 rounded-full object-cover shadow-xl border-2 ${isDarkMode ? 'border-white/20' : 'border-indigo-500/20'} mb-3`} />
                 <p className={`${theme.textMain} font-black text-xl tracking-tight`}>{myName}</p>
-                <div className="flex gap-4 mt-3">
+                <div className="flex gap-4 mt-2 mb-8">
                   <button onClick={toggleTheme} className={`${theme.textSub} text-[9px] font-bold uppercase tracking-widest hover:text-indigo-500 transition-all`}>{isDarkMode ? "Day Mode" : "Night Mode"}</button>
                   <button onClick={() => { localStorage.clear(); location.reload(); }} className="text-zinc-500 text-[9px] font-bold uppercase tracking-widest hover:text-red-500 transition-colors">Logout</button>
                 </div>
                 
-                {/* ✨ 룸 리스트 영역: 자식 요소 모두 w-full 통일, 불필요한 패딩 제거 */}
-                <div className="w-full flex flex-col h-[33vh] mt-8">
-                  <input onKeyDown={(e) => e.key === 'Enter' && joinRoom(e.currentTarget.value)} placeholder="SEARCH NODE (ENTER)" className={`w-full ${theme.input} px-6 py-4 rounded-xl text-center mb-5 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-bold tracking-widest backdrop-blur-md`} />
-                  <h2 className={`text-[10px] font-black text-left w-full ${theme.textMain} tracking-widest uppercase mb-3 pl-1 opacity-70`}>My Nodes</h2>
+                {/* ✨ 리스트 영역: 이너 컨테이너(320px) 안에서 정확히 100% (w-full) 크기 점유 */}
+                <div className="w-full flex flex-col h-[32vh]">
+                  <input onKeyDown={(e) => e.key === 'Enter' && joinRoom(e.currentTarget.value)} placeholder="SEARCH NODE (ENTER)" className={`w-full ${theme.input} px-6 py-4 rounded-xl text-center mb-5 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-bold tracking-widest backdrop-blur-md box-border`} />
+                  <h2 className={`w-full text-[10px] font-black text-left ${theme.textMain} tracking-widest uppercase mb-2 opacity-70`}>My Nodes</h2>
                   
-                  <div className="flex-1 w-full overflow-y-auto space-y-2 scrollbar-hide pb-2">
+                  <div className="w-full flex-1 overflow-y-auto space-y-2 scrollbar-hide">
                     {myRooms.map((roomName) => (
-                      <div key={roomName} className="relative group w-full flex items-center">
-                        <button onClick={() => joinRoom(roomName)} className={`w-full ${theme.input} px-5 py-4 rounded-xl flex items-center justify-between hover:bg-white/10 transition-all active:scale-[0.98] backdrop-blur-sm`}>
+                      <div key={roomName} className="w-full relative group">
+                        <button onClick={() => joinRoom(roomName)} className={`w-full ${theme.input} px-5 py-4 rounded-xl flex items-center justify-between hover:bg-white/10 transition-all active:scale-[0.98] backdrop-blur-sm box-border`}>
                           <span className={`font-black ${theme.textMain} text-sm tracking-tight`}>{roomName}</span>
                           <span className="text-[9px] text-indigo-500 font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-all">Connect</span>
                         </button>
-                        {/* 삭제 버튼이 바깥으로 삐져나가지 않도록 absolute 위치를 내부 정렬로 수정 */}
-                        <button onClick={(e) => leaveRoom(e, roomName)} className="absolute right-3 w-6 h-6 bg-red-500/90 text-white rounded-full text-[9px] opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center shadow-lg">✕</button>
+                        <button onClick={(e) => leaveRoom(e, roomName)} className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-red-500/90 text-white rounded-full text-[9px] opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center shadow-lg">✕</button>
                       </div>
                     ))}
                   </div>
                 </div>
-              </>
+              </div>
             )}
           </div>
       </div>
@@ -451,7 +450,6 @@ export default function DoolyOS_Master_Layout() {
         @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
         * { font-family: 'Pretendard', sans-serif; box-sizing: border-box; }
         
-        /* ✨ 타이틀 이탤릭체 클리핑 방지 및 중앙 정렬 유지 */
         .ULTRA_PRISM_TEXT {
           padding: 0 0.15em; 
           background: linear-gradient(120deg, #ff0055 0%, #ff5500 15%, #ffcc00 30%, #00ff66 50%, #00ccff 70%, #7700ff 85%, #ff0055 100%);
