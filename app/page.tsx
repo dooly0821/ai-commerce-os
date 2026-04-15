@@ -16,7 +16,7 @@ const firebaseConfig = {
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);
 
-export default function DoolyOS_PerfectSymmetry() {
+export default function DoolyOS_Final_Premium() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [currentRoom, setCurrentRoom] = useState("");
@@ -81,7 +81,7 @@ export default function DoolyOS_PerfectSymmetry() {
     window.open(window.location.href, 'DoolyOS_Popup', 'width=450,height=800,menubar=no,toolbar=no,location=no,status=no,scrollbars=yes');
   };
 
-  // 🎨 WebGL 반응형 배경 (스무스 렌더링 유지)
+  // 🎨 WebGL 배경 (모션 부드럽게 보간)
   useEffect(() => {
     if (currentRoom || !canvasContainerRef.current) return;
     
@@ -215,7 +215,7 @@ export default function DoolyOS_PerfectSymmetry() {
       if (clickDataRef.current.targetIntensity > 0) clickDataRef.current.targetIntensity -= 0.02;
 
       const targetDark = isDarkModeRef.current ? 1.0 : 0.0;
-      currentDarkVal += (targetDark - currentDarkVal) * 0.03; 
+      currentDarkVal += (targetDark - currentDarkVal) * 0.03; // 천천히 변하게
 
       const targetRotSpeed = isDarkModeRef.current ? 0.1 : 0.15;
       currentRotSpeed += (targetRotSpeed - currentRotSpeed) * 0.02; 
@@ -240,56 +240,6 @@ export default function DoolyOS_PerfectSymmetry() {
       window.removeEventListener('click', handleClick);
     };
   }, [currentRoom]); 
-
-  const handleProfileSave = (e) => {
-    if (e) e.preventDefault();
-    if (!tempName.trim()) return alert("아이디를 입력해주세요!");
-    const finalImg = tempImg || myProfileImg || "https://www.gstatic.com/images/branding/product/2x/avatar_anonymous_dark_64dp.png";
-    localStorage.setItem("aether-name", tempName);
-    localStorage.setItem("aether-profile", finalImg);
-    setMyName(tempName);
-    setMyProfileImg(finalImg);
-    setIsEditingProfile(false); 
-    if (isNotiEnabled && "Notification" in window && Notification.permission !== "granted") {
-      Notification.requestPermission();
-    }
-  };
-
-  const handleProfileImgUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => setTempImg(reader.result);
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const joinRoom = async (roomName) => {
-    const name = roomName.trim();
-    if (!name) return;
-    if (!myRooms.includes(name)) {
-      const updatedRooms = [name, ...myRooms];
-      setMyRooms(updatedRooms);
-      localStorage.setItem("aether-my-rooms", JSON.stringify(updatedRooms));
-    }
-    await setDoc(doc(db, "rooms", name), { name: name, updatedAt: serverTimestamp() }, { merge: true });
-    setCurrentRoom(name);
-  };
-
-  const leaveRoom = (e, roomName) => {
-    e.stopPropagation();
-    if (confirm(`'${roomName}' 노드에서 나가시겠습니까?`)) {
-      const updatedRooms = myRooms.filter(r => r !== roomName);
-      setMyRooms(updatedRooms);
-      localStorage.setItem("aether-my-rooms", JSON.stringify(updatedRooms));
-    }
-  };
-
-  const deleteMsg = async (id) => {
-    if (confirm("메시지를 삭제하시겠습니까?")) {
-      await deleteDoc(doc(db, "rooms", currentRoom, "messages", id));
-    }
-  };
 
   useEffect(() => {
     if (!currentRoom || !myName) return;
@@ -373,37 +323,43 @@ export default function DoolyOS_PerfectSymmetry() {
     return Array.from(usersMap, ([name, photo]) => ({ name, photo }));
   }, [messages]);
 
+  // ✨ 테마별 클래스 정의 (더 부드럽고 잔상 없는 트랜지션)
   const theme = {
-    chatBg: isDarkMode ? "bg-[#0a0a0f]" : "bg-[#f4f6f9]",
-    card: `transition-all duration-[800ms] ease-[cubic-bezier(0.4,0,0.2,1)] ${isDarkMode ? 'bg-black/40 border border-white/10 shadow-2xl' : 'bg-white/60 border border-black/5 shadow-xl'}`,
-    textMain: `transition-colors duration-[800ms] ${isDarkMode ? 'text-white' : 'text-[#1a1a1a]'}`,
-    textSub: `transition-colors duration-[800ms] ${isDarkMode ? 'text-zinc-500' : 'text-zinc-500'}`,
-    input: `transition-all duration-[800ms] ${isDarkMode ? 'bg-white/5 border border-white/10 text-white' : 'bg-white border border-black/10 text-black'}`,
+    chatBg: `transition-colors duration-[1000ms] ${isDarkMode ? "bg-[#0a0a0f]" : "bg-[#f4f6f9]"}`,
+    
+    // ✨ image_d3257d.png 해결: 트랜지션이 없는 투명 베이스 위에 테마색만 트랜지션시킴
+    cardBase: "rounded-[40px] z-10 backdrop-blur-2xl animate-in zoom-in duration-500 pointer-events-auto box-border overflow-hidden",
+    cardTheme: `transition-all duration-[1000ms] ease-out ${isDarkMode ? 'bg-black/40 border border-white/10 shadow-2xl' : 'bg-white/60 border border-white/80 shadow-lg'}`,
+    
+    textMain: `transition-colors duration-[1000ms] ${isDarkMode ? 'text-white' : 'text-[#1a1a1a]'}`,
+    textSub: `transition-colors duration-[1000ms] ${isDarkMode ? 'text-zinc-500' : 'text-zinc-600'}`,
+    input: `transition-all duration-[1000ms] ${isDarkMode ? 'bg-white/5 border border-white/10 text-white' : 'bg-white/80 border border-black/10 text-black'}`,
+    
     bubbleMe: "bg-gradient-to-br from-indigo-500 to-purple-500 text-white shadow-md",
-    bubbleOther: isDarkMode ? "bg-[#161720] border border-white/5 text-zinc-200" : "bg-white border border-black/5 text-zinc-800 shadow-sm",
+    bubbleOther: `transition-all duration-[1000ms] ${isDarkMode ? "bg-[#161720] border border-white/5 text-zinc-200" : "bg-white border border-black/5 text-zinc-800 shadow-sm"}`,
   };
 
   // 🖥️ UI: 로그인 & 방 목록
   if (!currentRoom) return (
-    <div className={`h-screen flex items-center justify-center p-6 relative overflow-hidden bg-black transition-colors duration-[800ms]`}>
+    <div className={`h-screen flex items-center justify-center p-6 relative overflow-hidden bg-black`}>
       <div ref={canvasContainerRef} className="absolute inset-0 z-0 pointer-events-auto" />
       
       <div className="absolute top-6 right-6 z-20 flex gap-3">
-        <button onClick={toggleNoti} className={`text-[10px] font-black border transition-all duration-[800ms] ${isDarkMode ? 'border-white/10 text-white/70 hover:bg-white/10' : 'border-black/10 text-black/70 hover:bg-black/5'} px-4 py-2 rounded-full backdrop-blur-md`}>
+        <button onClick={toggleNoti} className={`text-[10px] font-black border transition-all duration-700 ${isDarkMode ? 'border-white/10 text-white/70 hover:bg-white/10' : 'border-black/10 text-black/70 hover:bg-black/5'} px-4 py-2 rounded-full backdrop-blur-md`}>
           {isNotiEnabled ? "🔔 ON" : "🔕 OFF"}
         </button>
-        <button onClick={openPopup} className={`text-[10px] font-black border transition-all duration-[800ms] ${isDarkMode ? 'border-white/10 text-white/70 hover:bg-white/10' : 'border-black/10 text-black/70 hover:bg-black/5'} px-4 py-2 rounded-full backdrop-blur-md`}>
+        <button onClick={openPopup} className={`text-[10px] font-black border transition-all duration-700 ${isDarkMode ? 'border-white/10 text-white/70 hover:bg-white/10' : 'border-black/10 text-black/70 hover:bg-black/5'} px-4 py-2 rounded-full backdrop-blur-md`}>
           ↗ POP-OUT
         </button>
       </div>
 
-      {/* 전체 카드 컨테이너 */}
-      <div className={`${theme.card} p-8 sm:p-10 w-full max-w-[420px] rounded-[40px] flex flex-col items-center z-10 backdrop-blur-2xl animate-in zoom-in duration-500 pointer-events-auto`}>
+      {/* 전체 카드 컨테이너 (잔상 해결 구조) */}
+      <div className={`${theme.cardBase} ${theme.cardTheme} p-10 sm:p-12 w-full max-w-[420px] flex flex-col items-center gap-8`}>
           
-          {/* ✨ 절대 대칭 이너 컨테이너: 모든 요소의 최대 너비를 320px로 강제 고정하여 오차 원천 차단 */}
+          {/* ✨ image_d32560.png 정렬 완전 해결 구조: 모든 요소의 너비를 가상의 절대 그리드로 강제 통일 */}
           <div className="w-full max-w-[320px] flex flex-col items-center mx-auto relative">
             
-            <h1 className={`ULTRA_PRISM_TEXT text-[4.5rem] font-black italic tracking-tighter uppercase select-none mb-6 transition-all duration-[800ms] ${isDarkMode ? 'night-mode' : 'day-mode'}`}>DOOLY</h1>
+            <h1 className={`ULTRA_PRISM_TEXT text-[4.5rem] font-black italic tracking-tighter uppercase select-none mb-2 transition-all duration-[1000ms] ${isDarkMode ? 'night-mode' : 'day-mode'}`}>DOOLY</h1>
             
             {!myName ? (
               <form onSubmit={handleProfileSave} className="w-full flex flex-col items-center space-y-5">
@@ -411,30 +367,38 @@ export default function DoolyOS_PerfectSymmetry() {
                   {tempImg ? <img src={tempImg} className="w-full h-full object-cover" /> : <span className="text-zinc-500 text-[10px] font-bold tracking-widest">PHOTO +</span>}
                 </div>
                 <input type="file" ref={profileInputRef} onChange={handleProfileImgUpload} accept="image/*" className="hidden" />
-                {/* 이너 컨테이너를 가득 채우는 w-full */}
+                {/* 100% 가득 채우는 박스 구조 */}
                 <input value={tempName} onChange={(e) => setTempName(e.target.value)} placeholder="ENTER ID" className={`w-full ${theme.input} px-6 py-4 rounded-xl text-center focus:outline-none focus:ring-1 focus:ring-indigo-500 text-sm font-bold tracking-widest backdrop-blur-md box-border`} />
                 <button type="submit" className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white py-4 rounded-xl font-black uppercase tracking-[0.2em] text-[12px] shadow-lg active:scale-95 transition-all box-border">Start System</button>
               </form>
             ) : (
               <div className="w-full flex flex-col items-center">
-                <img src={myProfileImg} className={`transition-all duration-[800ms] w-20 h-20 rounded-full object-cover shadow-xl border-2 ${isDarkMode ? 'border-white/20' : 'border-indigo-500/20'} mb-3`} />
+                <img src={myProfileImg} className={`transition-all duration-[1000ms] w-20 h-20 rounded-full object-cover shadow-xl border-2 ${isDarkMode ? 'border-white/20' : 'border-indigo-500/20'} mb-3`} />
                 <p className={`${theme.textMain} font-black text-xl tracking-tight`}>{myName}</p>
-                <div className="flex gap-4 mt-2 mb-8">
+                <div className="flex gap-4 mt-3 mb-8">
                   <button onClick={toggleTheme} className={`${theme.textSub} text-[9px] font-bold uppercase tracking-widest hover:text-indigo-500 transition-all`}>{isDarkMode ? "Day Mode" : "Night Mode"}</button>
                   <button onClick={() => { localStorage.clear(); location.reload(); }} className="text-zinc-500 text-[9px] font-bold uppercase tracking-widest hover:text-red-500 transition-colors">Logout</button>
                 </div>
                 
-                {/* ✨ 리스트 영역: 이너 컨테이너(320px) 안에서 정확히 100% (w-full) 크기 점유 */}
-                <div className="w-full flex flex-col h-[32vh]">
-                  <input onKeyDown={(e) => e.key === 'Enter' && joinRoom(e.currentTarget.value)} placeholder="SEARCH NODE (ENTER)" className={`w-full ${theme.input} px-6 py-4 rounded-xl text-center mb-5 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-bold tracking-widest backdrop-blur-md box-border`} />
-                  <h2 className={`w-full text-[10px] font-black text-left ${theme.textMain} tracking-widest uppercase mb-2 opacity-70`}>My Nodes</h2>
+                {/* ✨ 리스트 영역: 완벽 대칭 구조 */}
+                <div className="w-full flex flex-col h-[33vh]">
+                  <input onKeyDown={(e) => e.key === 'Enter' && joinRoom(e.currentTarget.value)} placeholder="SEARCH NODE (ENTER)" className={`w-full ${theme.input} px-6 py-4 rounded-xl text-center mb-6 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs font-bold tracking-widest backdrop-blur-md box-border`} />
+                  <h2 className={`w-full text-[10px] font-black text-left ${theme.textMain} tracking-widest uppercase mb-3 opacity-70`}>My Nodes</h2>
                   
-                  <div className="w-full flex-1 overflow-y-auto space-y-2 scrollbar-hide">
+                  {/* 스크롤바 영역을 없애고 버튼이 w-full을 완벽하게 차지하도록 수정 */}
+                  <div className="w-full flex-1 overflow-y-auto space-y-2.5 scrollbar-hide pb-2">
                     {myRooms.map((roomName) => (
                       <div key={roomName} className="w-full relative group">
-                        <button onClick={() => joinRoom(roomName)} className={`w-full ${theme.input} px-5 py-4 rounded-xl flex items-center justify-between hover:bg-white/10 transition-all active:scale-[0.98] backdrop-blur-sm box-border`}>
-                          <span className={`font-black ${theme.textMain} text-sm tracking-tight`}>{roomName}</span>
-                          <span className="text-[9px] text-indigo-500 font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-all">Connect</span>
+                        {/* ✨ image_d32560.png 핵심 해결:justify-between 제거, CSS Grid를 이용해 왼쪽-중앙-오른쪽 절대 대칭 확보 */}
+                        <button onClick={() => joinRoom(roomName)} className={`w-full ${theme.input} px-5 py-4 rounded-xl grid grid-cols-[1fr_auto_1fr] items-center hover:bg-white/10 transition-all active:scale-[0.98] backdrop-blur-sm box-border`}>
+                          {/* Col 1: 왼쪽 여백 (대칭용) */}
+                          <div className="text-[9px] text-left text-indigo-500 font-bold uppercase opacity-0 group-hover:opacity-100 transition-all invisible">Connect</div>
+                          
+                          {/* Col 2: 중앙 방 이름 */}
+                          <span className={`font-black ${theme.textMain} text-sm tracking-tight text-center whitespace-nowrap overflow-hidden text-ellipsis`}>{roomName}</span>
+                          
+                          {/* Col 3: 오른쪽 Connect */}
+                          <div className="text-[9px] text-right text-indigo-500 font-bold uppercase opacity-0 group-hover:opacity-100 transition-all">Connect</div>
                         </button>
                         <button onClick={(e) => leaveRoom(e, roomName)} className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-red-500/90 text-white rounded-full text-[9px] opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center shadow-lg">✕</button>
                       </div>
@@ -457,20 +421,22 @@ export default function DoolyOS_PerfectSymmetry() {
           animation: prismGlow 4s linear infinite;
         }
         
+        /* Night Mode 대비 */
         .ULTRA_PRISM_TEXT.night-mode::before {
           content: "DOOLY"; position: absolute; left: 0.15em; top: 0; z-index: -1;
           color: rgba(255,255,255, 0.3);
           text-shadow: 0 4px 20px rgba(0,0,0,0.4), 0 0 40px rgba(255,255,255, 0.3);
           backdrop-filter: blur(5px); -webkit-text-stroke: 1px rgba(255,255,255,0.4);
-          transition: all 0.8s ease;
+          transition: all 1s ease;
         }
 
+        /* Day Mode 대비 (색 빠짐 없게 테두리/그림자 조정) */
         .ULTRA_PRISM_TEXT.day-mode::before {
           content: "DOOLY"; position: absolute; left: 0.15em; top: 0; z-index: -1;
           color: rgba(255,255,255, 0.6);
           text-shadow: 0 4px 15px rgba(0,0,0,0.1), 0 0 25px rgba(0,0,0, 0.05);
           backdrop-filter: blur(5px); -webkit-text-stroke: 1.5px rgba(0,0,0,0.15);
-          transition: all 0.8s ease;
+          transition: all 1s ease;
         }
 
         @keyframes prismGlow { to { background-position: 200% center; } }
@@ -481,15 +447,15 @@ export default function DoolyOS_PerfectSymmetry() {
 
   // 🖥️ UI: 채팅방 화면 
   return (
-    <div className={`flex flex-col h-screen ${theme.chatBg} transition-colors duration-[800ms] relative overflow-hidden`}>
-      {/* 백그라운드 전환 (Opacity 스무스 크로스페이드) */}
-      <div className={`absolute inset-0 z-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-900/20 via-[#0a0a0f] to-[#0a0a0f] transition-opacity duration-[800ms] ease-in-out ${isDarkMode ? 'opacity-100' : 'opacity-0'}`}></div>
-      <div className={`absolute inset-0 z-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-100/50 via-[#f4f6f9] to-[#eef2f6] transition-opacity duration-[800ms] ease-in-out ${isDarkMode ? 'opacity-0' : 'opacity-100'}`}></div>
+    <div className={`flex flex-col h-screen ${theme.chatBg}transition-all duration-[1000ms] relative overflow-hidden`}>
+      {/* 데이/나이트 정적 백그라운드 전환 (스무스) */}
+      <div className={`absolute inset-0 z-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-900/20 via-[#0a0a0f] to-[#0a0a0f] transition-opacity duration-[1000ms] ease-in-out ${isDarkMode ? 'opacity-100' : 'opacity-0'}`}></div>
+      <div className={`absolute inset-0 z-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-100/50 via-[#f4f6f9] to-[#eef2f6] transition-opacity duration-[1000ms] ease-in-out ${isDarkMode ? 'opacity-0' : 'opacity-100'}`}></div>
 
       {/* 인앱 토스트 알림 */}
       {toastMsg && (
         <div className="absolute bottom-24 right-6 z-50 animate-in slide-in-from-bottom duration-300 pointer-events-none">
-          <div className={`flex items-center gap-4 p-4 rounded-2xl shadow-2xl backdrop-blur-2xl border transition-all duration-[800ms] ${isDarkMode ? 'bg-black/80 border-white/20' : 'bg-white/90 border-black/10'}`}>
+          <div className={`flex items-center gap-4 p-4 rounded-2xl shadow-2xl backdrop-blur-2xl border transition-all duration-[1000ms] ${isDarkMode ? 'bg-black/80 border-white/20' : 'bg-white/90 border-black/10'}`}>
             <img src={toastMsg.photo} className="w-10 h-10 rounded-full border border-indigo-500/30 object-cover" />
             <div className="flex flex-col">
               <span className={`text-[10px] font-black uppercase tracking-widest text-indigo-500`}>{toastMsg.name}</span>
@@ -499,7 +465,7 @@ export default function DoolyOS_PerfectSymmetry() {
         </div>
       )}
 
-      <header className={`px-6 py-4 border-b transition-all duration-[800ms] ${isDarkMode ? 'border-white/5' : 'border-black/10'} flex justify-between items-center backdrop-blur-xl z-20 bg-inherit`}>
+      <header className={`px-6 py-4 border-b transition-all duration-[1000ms] ${isDarkMode ? 'border-white/5' : 'border-black/10'} flex justify-between items-center backdrop-blur-xl z-20 bg-inherit`}>
         <div className="flex items-center gap-5">
           <button onClick={() => setCurrentRoom("")} className={`${theme.textSub} text-[10px] font-bold uppercase hover:text-indigo-500 transition-colors`}>◀ EXIT</button>
           <div className="flex flex-col text-left gap-0.5">
@@ -510,29 +476,29 @@ export default function DoolyOS_PerfectSymmetry() {
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <button onClick={toggleNoti} className={`text-[9px] font-black border transition-all duration-[800ms] ${isDarkMode ? 'border-white/10 hover:bg-white/10' : 'border-black/10 hover:bg-black/5'} ${theme.textSub} px-3 py-1.5 rounded-full`}>
+        <div className="flex items-center gap-4">
+          <button onClick={toggleNoti} className={`text-[9px] font-black border transition-all duration-[1000ms] ${isDarkMode ? 'border-white/10 hover:bg-white/10' : 'border-black/10 hover:bg-black/5'} ${theme.textSub} px-3 py-1.5 rounded-full`}>
             {isNotiEnabled ? "🔔 ON" : "🔕 OFF"}
           </button>
-          <button onClick={openPopup} className={`text-[9px] font-black border transition-all duration-[800ms] ${isDarkMode ? 'border-indigo-500/50 text-indigo-400 hover:bg-indigo-500 hover:text-white' : 'border-indigo-500/50 text-indigo-600 hover:bg-indigo-500 hover:text-white'} px-3 py-1.5 rounded-full`}>
+          <button onClick={openPopup} className={`text-[9px] font-black border transition-all duration-[1000ms] ${isDarkMode ? 'border-indigo-500/50 text-indigo-400 hover:bg-indigo-500 hover:text-white' : 'border-indigo-500/50 text-indigo-600 hover:bg-indigo-500 hover:text-white'} px-3 py-1.5 rounded-full`}>
             ↗ POP-OUT
           </button>
-          <button onClick={() => setShowUserList(!showUserList)} className={`text-[9px] font-black border transition-all duration-[800ms] ${isDarkMode ? 'border-indigo-500/30 text-indigo-400 hover:bg-indigo-500 hover:text-white' : 'border-indigo-500/50 text-indigo-600 hover:bg-indigo-500 hover:text-white'} px-3 py-1.5 rounded-full`}>
+          <button onClick={() => setShowUserList(!showUserList)} className={`text-[9px] font-black border transition-all duration-[1000ms] ${isDarkMode ? 'border-indigo-500/30 text-indigo-400 hover:bg-indigo-500 hover:text-white' : 'border-indigo-500/50 text-indigo-600 hover:bg-indigo-500 hover:text-white'} px-3 py-1.5 rounded-full`}>
             👥 USERS ({activeUsers.length})
           </button>
-          <button onClick={toggleTheme} className={`text-[9px] font-black border transition-all duration-[800ms] ${isDarkMode ? 'border-white/10 hover:bg-white/10' : 'border-black/10 hover:bg-black/5'} ${theme.textSub} px-3 py-1.5 rounded-full`}>
+          <button onClick={toggleTheme} className={`text-[9px] font-black border transition-all duration-[1000ms] ${isDarkMode ? 'border-white/10 hover:bg-white/10' : 'border-black/10 hover:bg-black/5'} ${theme.textSub} px-3 py-1.5 rounded-full`}>
             {isDarkMode ? "DAY" : "NIGHT"}
           </button>
         </div>
       </header>
 
       {showUserList && (
-        <div className={`absolute top-[70px] right-0 w-64 p-4 transition-all duration-[800ms] ${isDarkMode ? 'bg-black/80 border-white/10' : 'bg-white/90 border-black/10'} backdrop-blur-2xl border-b border-l shadow-2xl animate-in slide-in-from-right duration-300 z-30 max-h-[50vh] overflow-y-auto rounded-bl-3xl`}>
+        <div className={`absolute top-[70px] right-0 w-64 p-4 transition-all duration-[1000ms] ${isDarkMode ? 'bg-black/80 border-white/10' : 'bg-white/90 border-black/10'} backdrop-blur-2xl border-b border-l shadow-2xl animate-in slide-in-from-right duration-300 z-30 max-h-[50vh] overflow-y-auto rounded-bl-3xl`}>
           <h3 className={`text-[10px] font-black ${theme.textSub} tracking-widest uppercase mb-4 pl-2`}>Participants</h3>
           <div className="flex flex-col gap-3">
             {activeUsers.map((user, idx) => (
               <div key={idx} className="flex items-center gap-3 p-2 rounded-xl hover:bg-zinc-500/10 transition-colors">
-                <img src={user.photo} className="transition-all duration-[800ms] w-8 h-8 rounded-full object-cover border border-zinc-500/20" />
+                <img src={user.photo} className="transition-all duration-[1000ms] w-8 h-8 rounded-full object-cover border border-zinc-500/20" />
                 <span className={`text-xs font-bold ${theme.textMain}`}>{user.name}</span>
               </div>
             ))}
@@ -541,11 +507,11 @@ export default function DoolyOS_PerfectSymmetry() {
       )}
 
       {isEditingProfile && (
-        <div className={`absolute top-[70px] left-0 w-full p-6 transition-all duration-[800ms] ${isDarkMode ? 'bg-black/60' : 'bg-white/80'} backdrop-blur-2xl border-b ${isDarkMode ? 'border-white/10' : 'border-black/10'} animate-in slide-in-from-top duration-300 z-30`}>
+        <div className={`absolute top-[70px] left-0 w-full p-6 transition-all duration-[1000ms] ${isDarkMode ? 'bg-black/60' : 'bg-white/80'} backdrop-blur-2xl border-b ${isDarkMode ? 'border-white/10' : 'border-black/10'} animate-in slide-in-from-top duration-300 z-30`}>
           <form onSubmit={handleProfileSave} className="flex items-center gap-4 max-w-lg mx-auto">
             <div className="relative w-12 h-12 rounded-full shrink-0 overflow-hidden cursor-pointer border border-zinc-500 group" onClick={() => profileInputRef.current.click()}>
-              <img src={tempImg || myProfileImg} className="transition-all duration-[800ms] w-full h-full object-cover opacity-60 group-hover:opacity-30" />
-              <span className="absolute inset-0 flex items-center justify-center text-[9px] font-black uppercase text-white transition-opacity duration-[800ms]">EDIT</span>
+              <img src={tempImg || myProfileImg} className="transition-all duration-[1000ms] w-full h-full object-cover opacity-60 group-hover:opacity-30" />
+              <span className="absolute inset-0 flex items-center justify-center text-[9px] font-black uppercase text-white transition-opacity duration-[1000ms]">EDIT</span>
             </div>
             <input type="file" ref={profileInputRef} onChange={handleProfileImgUpload} accept="image/*" className="hidden" />
             <input value={tempName} onChange={(e) => setTempName(e.target.value)} className={`flex-1 ${theme.input} px-4 py-3 rounded-xl text-xs outline-none focus:ring-1 focus:ring-indigo-500/50`} placeholder="NEW ID" />
@@ -563,11 +529,11 @@ export default function DoolyOS_PerfectSymmetry() {
              </div>
           ) : (
             <div key={m.id} className={`flex gap-3 ${m.userName === myName ? 'flex-row-reverse' : ''}`}>
-              <img src={m.userPhoto} className={`transition-all duration-[800ms] w-8 h-8 rounded-full shrink-0 object-cover border ${isDarkMode ? 'border-white/10' : 'border-black/5'} shadow-sm`} />
+              <img src={m.userPhoto} className={`transition-all duration-[1000ms] w-8 h-8 rounded-full shrink-0 object-cover border ${isDarkMode ? 'border-white/10' : 'border-black/5'} shadow-sm`} />
               <div className={`flex flex-col ${m.userName === myName ? 'items-end' : 'items-start'} max-w-[75%]`}>
                 <span className={`${theme.textSub} text-[9px] font-bold mb-1.5 px-1 uppercase opacity-80 tracking-widest`}>{m.userName}</span>
-                <div className={`group relative p-4 rounded-[20px] text-[13px] leading-relaxed shadow-sm transition-all duration-[800ms] ${m.userName === myName ? theme.bubbleMe + ' rounded-tr-[4px]' : `${theme.bubbleOther} rounded-tl-[4px]`}`}>
-                  {m.image && <img src={m.image} className="transition-all duration-[800ms] w-full rounded-xl mb-3 border border-white/5" />}
+                <div className={`group relative p-4 rounded-[20px] text-[13px] leading-relaxed shadow-sm transition-all duration-[1000ms] ${m.userName === myName ? theme.bubbleMe + ' rounded-tr-[4px]' : theme.bubbleOther + ' rounded-tl-[4px]'}`}>
+                  {m.image && <img src={m.image} className="transition-all duration-[1000ms] w-full rounded-xl mb-3 border border-white/5" />}
                   {m.text && <p className="whitespace-pre-wrap break-words">{m.text}</p>}
                   {m.userName === myName && (
                     <button onClick={() => deleteMsg(m.id)} className={`absolute -left-10 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-red-500 text-[10px] font-bold transition-all`}>DEL</button>
@@ -580,9 +546,9 @@ export default function DoolyOS_PerfectSymmetry() {
         <div ref={messagesEndRef} />
       </div>
 
-      <footer className={`p-5 border-t transition-all duration-[800ms] ${isDarkMode ? 'border-white/5' : 'border-black/10'} z-20 backdrop-blur-xl bg-inherit`}>
+      <footer className={`p-5 border-t transition-all duration-[1000ms] ${isDarkMode ? 'border-white/5' : 'border-black/10'} z-20 backdrop-blur-xl bg-inherit`}>
         <form onSubmit={sendMessage} className={`max-w-5xl mx-auto flex items-center gap-3 ${theme.input} p-1.5 rounded-2xl focus-within:ring-1 focus-within:ring-indigo-500/50 transition-all`}>
-          <button type="button" onClick={() => fileInputRef.current.click()} className={`w-10 h-10 flex items-center justify-center rounded-xl ${theme.textSub} transition-colors ${isDarkMode ? 'hover:bg-white/10' : 'hover:bg-black/5'}`}>
+          <button type="button" onClick={() => fileInputRef.current.click()} className={`w-10 h-10 flex items-center justify-center rounded-xl ${theme.textSub} hover:bg-zinc-500/20 transition-all`}>
             <span className="text-xl font-light">+</span>
           </button>
           <input type="file" ref={fileInputRef} onChange={(e) => { const f=e.target.files[0]; if(f){const r=new FileReader(); r.onloadend=()=>sendMessage(null, r.result); r.readAsDataURL(f);}}} accept="image/*" className="hidden" />
