@@ -3,7 +3,6 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { initializeApp, getApps, getApp } from "firebase/app"; 
 import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from "firebase/firestore";
 
-// 🔥 Firebase 설정
 const firebaseConfig = {
   apiKey: "AIzaSyD9-u-Qz2EWRDAzr7NAuUE6I7sGyCP0Cdc",
   authDomain: "dooly-66736.firebaseapp.com",
@@ -38,7 +37,6 @@ export default function Page() {
   const profileInputRef = useRef(null);
   const particleInstance = useRef(null);
 
-  // 초기 마운트 및 로컬 데이터 복원
   useEffect(() => {
     setIsMounted(true);
     const savedName = localStorage.getItem("dooly-name");
@@ -51,7 +49,7 @@ export default function Page() {
     setMyRooms(savedRooms);
   }, []);
 
-  // 7. 파티클 배경 & 6. 마우스 모션 (Vercel 빌드 최적화 로드)
+  // 6, 7. 파티클 및 마우스 모션 엔진
   useEffect(() => {
     if (!isMounted) return;
     const script = document.createElement("script");
@@ -74,14 +72,6 @@ export default function Page() {
     return () => { if (script.parentNode) document.head.removeChild(script); };
   }, [isMounted]);
 
-  // 2. 유저 실시간 정보 추출
-  const activeUsers = useMemo(() => {
-    const usersMap = new Map();
-    messages.forEach(m => { if(m.userName) usersMap.set(m.userName, m.userPhoto); });
-    return Array.from(usersMap, ([name, photo]) => ({ name, photo }));
-  }, [messages]);
-
-  // 8. 메시지 구독 및 알림
   useEffect(() => {
     if (!currentRoom || !myName) return;
     const q = query(collection(db, "rooms", currentRoom, "messages"), orderBy("createdAt", "asc"));
@@ -96,6 +86,12 @@ export default function Page() {
       }
     });
   }, [currentRoom, myName, isNotiEnabled]);
+
+  const activeUsers = useMemo(() => {
+    const usersMap = new Map();
+    messages.forEach(m => { if(m.userName) usersMap.set(m.userName, m.userPhoto); });
+    return Array.from(usersMap, ([name, photo]) => ({ name, photo }));
+  }, [messages]);
 
   const sendMessage = async (e, imgData = null) => {
     if (e) e.preventDefault();
@@ -117,7 +113,7 @@ export default function Page() {
     <div className={`h-screen w-full relative overflow-hidden transition-colors duration-1000 ${isDarkMode ? 'bg-[#060608]' : 'bg-[#f0f2f5]'}`}>
       <canvas ref={canvasRef} className="absolute inset-0 z-0" />
 
-      {/* 🔔 카톡형 알림 */}
+      {/* 🔔 알림 레이어 */}
       {toastMsg && (
         <div className="absolute bottom-28 right-10 z-[100] animate-in slide-in-from-bottom-4 duration-500">
           <div className="flex items-center gap-4 p-5 rounded-[32px] bg-black/80 backdrop-blur-2xl border border-white/10 shadow-2xl">
@@ -130,7 +126,7 @@ export default function Page() {
         </div>
       )}
 
-      {/* 1. 팝업 & 테마 컨트롤 */}
+      {/* 1. 팝업 & 컨트롤 */}
       <div className="absolute top-8 right-10 z-50 flex gap-4">
         <button onClick={() => window.open(window.location.href, '_blank', 'width=450,height=850')} className="text-[10px] font-black border border-white/20 px-5 py-2.5 rounded-full backdrop-blur-xl text-white/70 hover:bg-white/20 transition-all uppercase tracking-widest">↗ Pop-out</button>
         <button onClick={() => setIsDarkMode(!isDarkMode)} className="text-[10px] font-black border border-white/20 px-5 py-2.5 rounded-full backdrop-blur-xl text-white/70 hover:bg-white/20 transition-all uppercase tracking-widest">{isDarkMode ? "Day" : "Night"}</button>
@@ -146,8 +142,8 @@ export default function Page() {
               </div>
 
               {!myName ? (
+                /* 4. 인트로 프로필 찌그러짐 방지 */
                 <div className="w-full space-y-6">
-                  {/* 4. 인트로 프로필 깨짐 방지 */}
                   <div className="w-28 h-28 rounded-full bg-white/5 border border-white/10 flex items-center justify-center cursor-pointer overflow-hidden mx-auto mb-4 group aspect-square shrink-0" onClick={() => profileInputRef.current.click()}>
                     <img src={tempImg || DEFAULT_AVATAR} onError={(e) => e.currentTarget.src = DEFAULT_AVATAR} className="w-full h-full object-cover rounded-full" />
                   </div>
@@ -180,19 +176,19 @@ export default function Page() {
         ) : (
           /* 📱 8. [CHAT] 레이아웃 완결 */
           <div className="h-full w-full flex flex-col animate-in fade-in duration-700">
-            {/* 헤더: 겹침 방지 그리드 */}
+            {/* 헤더 겹침 방지 그리드 */}
             <header className={`px-12 py-7 border-b grid grid-cols-3 items-center backdrop-blur-2xl ${isDarkMode ? 'border-white/5 bg-black/30' : 'border-black/5 bg-white/50'}`}>
-              <div className="flex justify-start">
+              <div className="flex justify-start items-center">
                 <button onClick={() => setCurrentRoom("")} className="text-white/40 text-[11px] font-black hover:text-indigo-500 transition-colors uppercase tracking-widest">◀ Back</button>
               </div>
-              <div className="flex justify-center">
+              <div className="flex justify-center items-center">
                 <h1 className="text-2xl font-black italic text-indigo-500 uppercase tracking-tighter truncate max-w-full">{currentRoom}</h1>
               </div>
-              <div className="flex justify-end items-center gap-8">
-                <button onClick={() => setShowUserList(!showUserList)} className="hidden sm:block text-[10px] font-black border border-white/10 px-5 py-2.5 rounded-full text-white/60 hover:bg-white/10 uppercase">Users ({activeUsers.length})</button>
-                <div className="flex items-center gap-5 pl-8 border-l border-white/10 h-10">
-                  <span className={`${theme.text} text-[14px] font-black hidden lg:block`}>{myName}</span>
-                  <div className="w-11 h-11 rounded-full overflow-hidden border-2 border-indigo-500/30 shadow-lg shrink-0 aspect-square">
+              <div className="flex justify-end items-center gap-6">
+                {/* 2. 유저 확인 버튼 */}
+                <button onClick={() => setShowUserList(!showUserList)} className="hidden sm:block text-[10px] font-black border border-white/10 px-5 py-2.5 rounded-full text-white/60 hover:bg-white/10 uppercase transition-all">Users ({activeUsers.length})</button>
+                <div className="flex items-center gap-4 pl-6 border-l border-white/10 h-10">
+                   <div className="w-11 h-11 rounded-full overflow-hidden border-2 border-indigo-500/30 shadow-lg shrink-0 aspect-square">
                     <img src={myProfileImg || DEFAULT_AVATAR} onError={(e) => e.currentTarget.src = DEFAULT_AVATAR} className="w-full h-full object-cover" />
                   </div>
                 </div>
@@ -202,7 +198,7 @@ export default function Page() {
             <div className="flex-1 overflow-y-auto px-12 py-16 space-y-12 no-scrollbar w-full max-w-6xl mx-auto flex flex-col">
               {messages.map((m) => (
                 m.type === "system" ? (
-                  /* 8. 시스템 안내 정중앙 보정 */
+                  /* 시스템 안내 정중앙 보정 */
                   <div key={m.id} className="w-full flex justify-center py-6">
                     <div className="px-10 py-3 rounded-full bg-white/5 border border-white/5 backdrop-blur-md">
                       <span className="text-white/40 text-[11px] font-black tracking-[0.2em] uppercase">{m.text}</span>
@@ -239,7 +235,7 @@ export default function Page() {
         )}
       </main>
 
-      {/* 2. 유저 확인 사이드바 */}
+      {/* 2. 유저 확인 사이드바 복구 */}
       {showUserList && (
         <div className={`absolute top-32 right-12 w-80 p-8 rounded-[40px] ${theme.card} z-50 animate-in slide-in-from-right duration-500 shadow-2xl border border-white/10`}>
           <h3 className="text-indigo-400 text-[11px] font-black uppercase tracking-[0.2em] mb-8">Connected Nodes</h3>
