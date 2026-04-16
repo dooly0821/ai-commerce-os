@@ -44,8 +44,8 @@ export default function Page() {
   // 스마트 스크롤을 위한 Refs
   const canvasRef = useRef(null);
   const messagesEndRef = useRef(null);
-  const chatContainerRef = useRef(null); // 채팅창 컨테이너 Ref 추가
-  const isAtBottomRef = useRef(true); // 현재 유저가 스크롤을 맨 아래에 두었는지 확인
+  const chatContainerRef = useRef(null);
+  const isAtBottomRef = useRef(true); 
 
   const fileInputRef = useRef(null);
   const profileInputRef = useRef(null);
@@ -66,21 +66,43 @@ export default function Page() {
     setMyRooms(savedRooms);
   }, []);
 
-  // Vercel 빌드 에러 우회 로더
+  // [수정 1] 지직거림 방지: 파티클 엔진 클린업(Cleanup) 킬스위치 적용
   useEffect(() => {
     if (!isMounted || currentRoom) return; 
+    let isCancelled = false;
+
     const loadParticles = async () => {
       try {
         const loader = new Function('return import("https://cdn.jsdelivr.net/npm/threejs-components@0.0.26/build/cursors/attraction1.min.js")');
         const module = await loader();
-        if (!particleInstance.current && canvasRef.current) {
-          particleInstance.current = module.default(canvasRef.current, {
-            particles: { attractionIntensity: 0.85, size: 1.2 },
-          });
+        if (isCancelled || !canvasRef.current) return;
+
+        // 기존 렌더링 루프 파괴 (프레임 충돌 원천 차단)
+        if (particleInstance.current && typeof particleInstance.current.destroy === 'function') {
+          particleInstance.current.destroy();
         }
+
+        particleInstance.current = module.default(canvasRef.current, {
+          particles: { attractionIntensity: 0.85, size: 1.2 },
+        });
       } catch (e) { console.error("Engine Load Failed", e); }
     };
     loadParticles();
+
+    // 화면 이동 시 엔진 강제 종료
+    return () => {
+      isCancelled = true;
+      if (particleInstance.current) {
+        try {
+          if (typeof particleInstance.current.destroy === 'function') {
+            particleInstance.current.destroy();
+          } else if (typeof particleInstance.current.remove === 'function') {
+            particleInstance.current.remove();
+          }
+        } catch(err) {}
+        particleInstance.current = null;
+      }
+    };
   }, [isMounted, currentRoom]);
 
   // 실시간 동기화 및 스마트 스크롤 제어
@@ -89,7 +111,6 @@ export default function Page() {
     const q = query(collection(db, "rooms", currentRoom, "messages"), orderBy("createdAt", "asc"));
     return onSnapshot(q, (snapshot) => {
       setMessages(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
-      // 유저가 스크롤을 맨 밑에 두었을 때만 자동 스크롤 작동
       if (isAtBottomRef.current) {
         setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
       }
@@ -108,7 +129,6 @@ export default function Page() {
     const msg = { text: input, image: imgData, userName: myName, userPhoto: myProfileImg, type: "chat", createdAt: serverTimestamp() };
     setInput("");
     
-    // 내가 메시지를 보낼 때는 무조건 스크롤 하단으로 강제 이동
     isAtBottomRef.current = true;
     await addDoc(collection(db, "rooms", currentRoom, "messages"), msg);
   };
@@ -127,11 +147,9 @@ export default function Page() {
     window.location.reload();
   };
 
-  // 스크롤 이벤트 감지: 유저가 대화창 위로 올렸는지 판단
   const handleScroll = () => {
     if (!chatContainerRef.current) return;
     const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
-    // 하단에서 150px 이내에 있으면 '맨 밑에 있다'고 판단
     isAtBottomRef.current = scrollHeight - scrollTop <= clientHeight + 150;
   };
 
@@ -143,18 +161,18 @@ export default function Page() {
       : 'bg-gradient-to-br from-[#f4f4f5] via-[#ffffff] to-[#f4f4f5]', 
     text: isDarkMode ? 'text-white' : 'text-zinc-900',
     subText: isDarkMode ? 'text-white/40' : 'text-zinc-500',
-    card: `transition-all duration-700 ${isDarkMode ? 'bg-black/40 border-white/10' : 'bg-white/90 border-zinc-200'} backdrop-blur-3xl shadow-2xl`,
-    header: `transition-all duration-700 border-b backdrop-blur-3xl ${isDarkMode ? 'border-white/5 bg-black/40' : 'border-zinc-200 bg-white/80'}`,
+    card: `transition-all duration-700 gpu-accelerate ${isDarkMode ? 'bg-black/40 border-white/10' : 'bg-white/90 border-zinc-200'} backdrop-blur-3xl shadow-2xl`,
+    header: `transition-all duration-700 gpu-accelerate border-b backdrop-blur-3xl ${isDarkMode ? 'border-white/5 bg-black/40' : 'border-zinc-200 bg-white/80'}`,
     input: `transition-all duration-700 ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-zinc-100 border-zinc-300 text-zinc-900 shadow-sm'}`,
-    bubbleOther: isDarkMode ? 'bg-white/10 text-white' : 'bg-zinc-100 text-zinc-900 border border-zinc-200 shadow-sm',
+    bubbleOther: isDarkMode ? 'bg-white/10 text-white gpu-accelerate' : 'bg-zinc-100 text-zinc-900 border border-zinc-200 shadow-sm gpu-accelerate',
     btnDayNight: isDarkMode ? 'border-white/20 text-white/70 hover:bg-white/10' : 'border-zinc-300 bg-zinc-100 text-zinc-800 hover:bg-zinc-200'
   };
 
   return (
     <div className={`h-screen w-full relative overflow-hidden transition-colors duration-1000 ${currentRoom ? theme.chatBg : (isDarkMode ? 'bg-[#060608]' : 'bg-[#e4e4e7]')}`}>
-      {!currentRoom && <canvas ref={canvasRef} className="absolute inset-0 z-0 pointer-events-none" />}
+      {!currentRoom && <canvas ref={canvasRef} className="absolute inset-0 z-0 pointer-events-none gpu-accelerate" />}
 
-      {/* 인트로 전용 전역 컨트롤러 */}
+      {/* 인트로 화면 우측 상단 버튼 */}
       {!currentRoom && (
         <div className="absolute top-6 right-6 z-[60] flex items-center gap-3 flex-row flex-nowrap">
           <button onClick={() => window.open(window.location.href, '_blank', 'width=450,height=850')} className={`text-[10px] font-black px-4 py-2 rounded-full backdrop-blur-md transition-all uppercase tracking-widest shrink-0 border ${theme.btnDayNight}`}>↗ Pop</button>
@@ -172,7 +190,7 @@ export default function Page() {
                   <h1 className={`ULTRA_PRISM_TEXT text-[4.5rem] font-black italic tracking-tighter uppercase leading-none transition-all duration-1000 ${isDarkMode ? 'night' : 'day'}`}>DOOLY</h1>
                 </div>
                 <div className="w-full space-y-6 flex flex-col items-center">
-                  <div className="w-24 h-24 rounded-full border-2 border-indigo-500/20 overflow-hidden mb-2 aspect-square shrink-0 shadow-xl">
+                  <div className="w-24 h-24 rounded-full border-2 border-indigo-500/20 overflow-hidden mb-2 aspect-square shrink-0 shadow-xl gpu-accelerate">
                     <img src={myProfileImg} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = RANDOM_AVATARS[0]; }} className="w-full h-full object-cover" />
                   </div>
                   <input value={myName} onChange={(e) => setMyName(e.target.value)} placeholder="ENTER IDENTITY" className={`w-full ${theme.input} px-6 py-4 rounded-[22px] text-center outline-none font-black text-sm tracking-widest`} />
@@ -196,9 +214,7 @@ export default function Page() {
               <div className="flex justify-start items-center gap-3 sm:gap-5 overflow-hidden">
                 <button onClick={() => setCurrentRoom("")} className={`${theme.subText} text-[10px] font-black hover:text-indigo-500 uppercase tracking-widest transition-colors shrink-0`}>◀ Back</button>
                 <button onClick={() => { setTempName(myName); setTempImg(myProfileImg); setIsEditingProfile(true); }} className="flex items-center gap-2 group shrink-0">
-                  <div className="w-8 h-8 rounded-full overflow-hidden border border-indigo-500/30 aspect-square shrink-0">
-                    <img src={myProfileImg} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = RANDOM_AVATARS[0]; }} className="w-full h-full object-cover" />
-                  </div>
+                  <div className="w-8 h-8 rounded-full overflow-hidden border border-indigo-500/30 aspect-square shrink-0 gpu-accelerate"><img src={myProfileImg} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = RANDOM_AVATARS[0]; }} className="w-full h-full object-cover" /></div>
                   <span className={`${theme.text} text-[11px] font-black opacity-40 group-hover:opacity-100 transition-opacity truncate max-w-[60px] hidden sm:block`}>Edit</span>
                 </button>
               </div>
@@ -214,24 +230,22 @@ export default function Page() {
               </div>
             </header>
             
-            {/* 스크롤 감지 이벤트 추가 */}
             <div ref={chatContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-6 sm:px-10 py-12 space-y-10 no-scrollbar w-full max-w-5xl mx-auto flex flex-col">
               {messages.map((m) => (
                 m.type === "system" ? (
                   <div key={m.id} className="w-full flex justify-center py-4">
-                    <div className={`px-8 py-2.5 rounded-full backdrop-blur-md ${isDarkMode ? 'bg-white/5 border border-white/5 opacity-40' : 'bg-zinc-200/50 border border-zinc-200 opacity-70'}`}>
+                    <div className={`px-8 py-2.5 rounded-full backdrop-blur-md gpu-accelerate ${isDarkMode ? 'bg-white/5 border border-white/5 opacity-40' : 'bg-zinc-200/50 border border-zinc-200 opacity-70'}`}>
                       <span className={`${theme.subText} text-[10px] font-black tracking-[0.2em] uppercase`}>{m.text}</span>
                     </div>
                   </div>
                 ) : (
                   <div key={m.id} className={`flex gap-4 sm:gap-5 ${m.userName === myName ? 'flex-row-reverse' : 'flex-row'} animate-in fade-in`}>
-                    <div className="w-10 h-10 rounded-full shrink-0 overflow-hidden border border-white/10 shadow-md self-end aspect-square ring-1 ring-black/5">
-                      {/* 무한 루프 차단 (onerror = null) */}
+                    <div className="w-10 h-10 rounded-full shrink-0 overflow-hidden border border-white/10 shadow-md self-end aspect-square ring-1 ring-black/5 gpu-accelerate">
                       <img src={m.userPhoto} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = RANDOM_AVATARS[0]; }} className="w-full h-full object-cover" />
                     </div>
                     <div className={`flex flex-col ${m.userName === myName ? 'items-end' : 'items-start'} max-w-[75%]`}>
                       <span className={`${theme.subText} text-[9px] font-black mb-2 px-1 uppercase tracking-widest`}>{m.userName}</span>
-                      <div className={`p-5 sm:p-6 rounded-[28px] sm:rounded-[32px] text-[14px] sm:text-[15px] leading-relaxed shadow-lg ${m.userName === myName ? 'bg-gradient-to-br from-indigo-600 to-purple-700 text-white rounded-br-none' : `${theme.bubbleOther} rounded-bl-none`}`}>
+                      <div className={`p-5 sm:p-6 rounded-[28px] sm:rounded-[32px] text-[14px] sm:text-[15px] leading-relaxed shadow-lg gpu-accelerate ${m.userName === myName ? 'bg-gradient-to-br from-indigo-600 to-purple-700 text-white rounded-br-none' : `${theme.bubbleOther} rounded-bl-none`}`}>
                         {m.image && <img src={m.image} className="w-full max-w-sm rounded-xl mb-3 border border-white/10" />}
                         {m.text && <p className="whitespace-pre-wrap font-medium">{m.text}</p>}
                       </div>
@@ -242,7 +256,7 @@ export default function Page() {
               <div ref={messagesEndRef} />
             </div>
 
-            <footer className={`p-6 backdrop-blur-3xl border-t ${isDarkMode ? 'border-white/5' : 'border-zinc-200'}`}>
+            <footer className={`p-6 backdrop-blur-3xl border-t gpu-accelerate ${isDarkMode ? 'border-white/5' : 'border-zinc-200'}`}>
               <form onSubmit={sendMessage} className={`max-w-4xl mx-auto flex gap-3 sm:gap-4 ${theme.input} p-2 rounded-[30px] border focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all`}>
                 <button type="button" onClick={() => fileInputRef.current.click()} className="w-12 h-12 flex items-center justify-center rounded-[20px] hover:bg-black/5 text-xl font-light shrink-0">+</button>
                 <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => { const f=e.target.files[0]; if(f){ const r=new FileReader(); r.onloadend=()=>sendMessage(null, r.result); r.readAsDataURL(f); }}} />
@@ -259,7 +273,7 @@ export default function Page() {
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
           <div className={`${theme.card} w-full max-w-[380px] p-10 rounded-[48px] border border-white/20 flex flex-col items-center shadow-full`}>
             <h2 className="text-indigo-400 text-[10px] font-black uppercase tracking-[0.4em] mb-8">Update ID</h2>
-            <div className="w-28 h-28 rounded-full border-4 border-indigo-500/30 overflow-hidden mb-6 cursor-pointer relative group aspect-square shadow-xl" onClick={() => profileInputRef.current.click()}>
+            <div className="w-28 h-28 rounded-full border-4 border-indigo-500/30 overflow-hidden mb-6 cursor-pointer relative group aspect-square shadow-xl gpu-accelerate" onClick={() => profileInputRef.current.click()}>
               <img src={tempImg || myProfileImg} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = RANDOM_AVATARS[0]; }} className="w-full h-full object-cover" />
               <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><span className="text-white text-[9px] font-black">CHANGE</span></div>
             </div>
@@ -280,7 +294,7 @@ export default function Page() {
           <div className="space-y-5 max-h-[40vh] overflow-y-auto no-scrollbar">
             {activeUsers.map((user, idx) => (
               <div key={idx} className="flex items-center gap-4 group">
-                <div className="w-10 h-10 rounded-full overflow-hidden border border-indigo-500/10 shrink-0 aspect-square"><img src={user.photo} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = RANDOM_AVATARS[0]; }} className="w-full h-full object-cover transition-transform group-hover:scale-110" /></div>
+                <div className="w-10 h-10 rounded-full overflow-hidden border border-indigo-500/10 shrink-0 aspect-square gpu-accelerate"><img src={user.photo} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = RANDOM_AVATARS[0]; }} className="w-full h-full object-cover transition-transform group-hover:scale-110" /></div>
                 <span className={`${theme.text} font-black text-[14px] tracking-tight truncate`}>{user.name}</span>
               </div>
             ))}
@@ -288,6 +302,7 @@ export default function Page() {
         </div>
       )}
 
+      {/* [수정 2] GPU 가속 강제 할당 글로벌 CSS 추가 */}
       <style jsx global>{`
         @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
         * { font-family: 'Pretendard', sans-serif; box-sizing: border-box; }
@@ -296,9 +311,19 @@ export default function Page() {
           background: linear-gradient(120deg, #ff0055, #ffcc00, #00ff66, #00ccff, #7700ff);
           background-size: 200% auto; color: transparent; -webkit-background-clip: text; background-clip: text; 
           animation: prism 4s linear infinite; padding-right: 0.35em; position: relative; overflow: visible;
+          transform: translateZ(0); /* 텍스트 지직거림 방지 */
         }
-        .ULTRA_PRISM_TEXT::before { content: "DOOLY"; position: absolute; left: 0.35em; top: 0; z-index: -1; filter: blur(40px); opacity: 0.5; }
+        .ULTRA_PRISM_TEXT::before { content: "DOOLY"; position: absolute; left: 0.35em; top: 0; z-index: -1; filter: blur(40px); opacity: 0.5; transform: translateZ(0); }
         @keyframes prism { to { background-position: 200% center; } }
+        
+        /* 하드웨어 가속 강제 (렌더링 찢어짐/Flickering 완벽 방지) */
+        .gpu-accelerate {
+          transform: translateZ(0);
+          -webkit-transform: translateZ(0);
+          backface-visibility: hidden;
+          -webkit-backface-visibility: hidden;
+          perspective: 1000px;
+        }
       `}</style>
     </div>
   );
