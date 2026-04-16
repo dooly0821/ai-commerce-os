@@ -15,8 +15,9 @@ const firebaseConfig = {
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);
+const DEFAULT_AVATAR = "https://www.gstatic.com/images/branding/product/2x/avatar_anonymous_dark_64dp.png";
 
-// 3D 캐릭터 아바타 소스 유지
+// 3D 캐릭터 아바타 소스
 const RANDOM_AVATARS = [
   "https://image.aispace.xyz/avatars/3d_char_1.png",
   "https://image.aispace.xyz/avatars/3d_char_2.png",
@@ -40,8 +41,12 @@ export default function Page() {
   const [showUserList, setShowUserList] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
 
+  // 스마트 스크롤을 위한 Refs
   const canvasRef = useRef(null);
   const messagesEndRef = useRef(null);
+  const chatContainerRef = useRef(null); // 채팅창 컨테이너 Ref 추가
+  const isAtBottomRef = useRef(true); // 현재 유저가 스크롤을 맨 아래에 두었는지 확인
+
   const fileInputRef = useRef(null);
   const profileInputRef = useRef(null);
   const particleInstance = useRef(null);
@@ -61,7 +66,7 @@ export default function Page() {
     setMyRooms(savedRooms);
   }, []);
 
-  // Vercel 빌드 무결성 로더 유지
+  // Vercel 빌드 에러 우회 로더
   useEffect(() => {
     if (!isMounted || currentRoom) return; 
     const loadParticles = async () => {
@@ -78,12 +83,16 @@ export default function Page() {
     loadParticles();
   }, [isMounted, currentRoom]);
 
+  // 실시간 동기화 및 스마트 스크롤 제어
   useEffect(() => {
     if (!currentRoom || !myName) return;
     const q = query(collection(db, "rooms", currentRoom, "messages"), orderBy("createdAt", "asc"));
     return onSnapshot(q, (snapshot) => {
       setMessages(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
-      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+      // 유저가 스크롤을 맨 밑에 두었을 때만 자동 스크롤 작동
+      if (isAtBottomRef.current) {
+        setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+      }
     });
   }, [currentRoom, myName]);
 
@@ -98,6 +107,9 @@ export default function Page() {
     if (!input.trim() && !imgData) return;
     const msg = { text: input, image: imgData, userName: myName, userPhoto: myProfileImg, type: "chat", createdAt: serverTimestamp() };
     setInput("");
+    
+    // 내가 메시지를 보낼 때는 무조건 스크롤 하단으로 강제 이동
+    isAtBottomRef.current = true;
     await addDoc(collection(db, "rooms", currentRoom, "messages"), msg);
   };
 
@@ -115,9 +127,16 @@ export default function Page() {
     window.location.reload();
   };
 
+  // 스크롤 이벤트 감지: 유저가 대화창 위로 올렸는지 판단
+  const handleScroll = () => {
+    if (!chatContainerRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
+    // 하단에서 150px 이내에 있으면 '맨 밑에 있다'고 판단
+    isAtBottomRef.current = scrollHeight - scrollTop <= clientHeight + 150;
+  };
+
   if (!isMounted) return null;
 
-  // 데이/나이트 고대비 테마 시스템 유지
   const theme = {
     chatBg: isDarkMode 
       ? 'bg-gradient-to-br from-[#0a0a0c] via-[#12121a] to-[#08080a]' 
@@ -133,10 +152,9 @@ export default function Page() {
 
   return (
     <div className={`h-screen w-full relative overflow-hidden transition-colors duration-1000 ${currentRoom ? theme.chatBg : (isDarkMode ? 'bg-[#060608]' : 'bg-[#e4e4e7]')}`}>
-      {/* 파티클 캔버스 */}
       {!currentRoom && <canvas ref={canvasRef} className="absolute inset-0 z-0 pointer-events-none" />}
 
-      {/* [수정 3] 인트로 화면에서만 렌더링되도록 분리 (채팅방 헤더와 겹침 방지) */}
+      {/* 인트로 전용 전역 컨트롤러 */}
       {!currentRoom && (
         <div className="absolute top-6 right-6 z-[60] flex items-center gap-3 flex-row flex-nowrap">
           <button onClick={() => window.open(window.location.href, '_blank', 'width=450,height=850')} className={`text-[10px] font-black px-4 py-2 rounded-full backdrop-blur-md transition-all uppercase tracking-widest shrink-0 border ${theme.btnDayNight}`}>↗ Pop</button>
@@ -144,7 +162,6 @@ export default function Page() {
         </div>
       )}
 
-      {/* [수정 1, 2] fixed 레이아웃 제거하여 증발 현상 해결, 안정적인 flex 구조 적용 */}
       <main className="relative h-full w-full z-10 flex flex-col items-center justify-center overflow-hidden">
         {!currentRoom ? (
           /* ✨ [INTRO] */
@@ -156,7 +173,7 @@ export default function Page() {
                 </div>
                 <div className="w-full space-y-6 flex flex-col items-center">
                   <div className="w-24 h-24 rounded-full border-2 border-indigo-500/20 overflow-hidden mb-2 aspect-square shrink-0 shadow-xl">
-                    <img src={myProfileImg} onError={(e) => e.currentTarget.src = RANDOM_AVATARS[0]} className="w-full h-full object-cover" />
+                    <img src={myProfileImg} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = RANDOM_AVATARS[0]; }} className="w-full h-full object-cover" />
                   </div>
                   <input value={myName} onChange={(e) => setMyName(e.target.value)} placeholder="ENTER IDENTITY" className={`w-full ${theme.input} px-6 py-4 rounded-[22px] text-center outline-none font-black text-sm tracking-widest`} />
                   <div className="w-full flex flex-col h-[25vh] min-h-[150px]">
@@ -175,12 +192,13 @@ export default function Page() {
         ) : (
           /* 📱 [CHAT] */
           <div className="h-full w-full flex flex-col animate-in fade-in duration-500">
-            {/* [수정 3] 헤더 버튼 겹침 및 먹통 완전 해결 (그리드 내부로 버튼 편입) */}
             <header className={`${theme.header} px-6 sm:px-10 py-5 grid grid-cols-[1fr_auto_1fr] items-center z-20 gap-4 shadow-sm`}>
               <div className="flex justify-start items-center gap-3 sm:gap-5 overflow-hidden">
                 <button onClick={() => setCurrentRoom("")} className={`${theme.subText} text-[10px] font-black hover:text-indigo-500 uppercase tracking-widest transition-colors shrink-0`}>◀ Back</button>
                 <button onClick={() => { setTempName(myName); setTempImg(myProfileImg); setIsEditingProfile(true); }} className="flex items-center gap-2 group shrink-0">
-                  <div className="w-8 h-8 rounded-full overflow-hidden border border-indigo-500/30 aspect-square shrink-0"><img src={myProfileImg} onError={(e) => e.currentTarget.src = RANDOM_AVATARS[0]} className="w-full h-full object-cover" /></div>
+                  <div className="w-8 h-8 rounded-full overflow-hidden border border-indigo-500/30 aspect-square shrink-0">
+                    <img src={myProfileImg} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = RANDOM_AVATARS[0]; }} className="w-full h-full object-cover" />
+                  </div>
                   <span className={`${theme.text} text-[11px] font-black opacity-40 group-hover:opacity-100 transition-opacity truncate max-w-[60px] hidden sm:block`}>Edit</span>
                 </button>
               </div>
@@ -189,7 +207,6 @@ export default function Page() {
                 <h1 className="text-lg sm:text-xl font-black italic text-indigo-500 uppercase tracking-tighter truncate px-2">{currentRoom}</h1>
               </div>
               
-              {/* 우측 상단 버튼들이 채팅방에서는 이 헤더 안에서 안전하게 정렬됩니다. */}
               <div className="flex justify-end items-center gap-2 sm:gap-3 flex-nowrap shrink-0">
                 <button onClick={() => setShowUserList(!showUserList)} className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-full text-[9px] sm:text-[10px] font-black uppercase transition-all shrink-0 ${isDarkMode ? 'bg-white/10 text-white/70 hover:bg-white/20' : 'bg-zinc-200 text-zinc-900 hover:bg-zinc-300'}`}>Users ({activeUsers.length})</button>
                 <button onClick={() => setIsDarkMode(!isDarkMode)} className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-full text-[9px] sm:text-[10px] font-black uppercase transition-all shrink-0 ${isDarkMode ? 'bg-white/10 text-white/70 hover:bg-white/20' : 'bg-zinc-200 text-zinc-900 hover:bg-zinc-300'}`}>{isDarkMode ? "Day" : "Night"}</button>
@@ -197,7 +214,8 @@ export default function Page() {
               </div>
             </header>
             
-            <div className="flex-1 overflow-y-auto px-6 sm:px-10 py-12 space-y-10 no-scrollbar w-full max-w-5xl mx-auto flex flex-col">
+            {/* 스크롤 감지 이벤트 추가 */}
+            <div ref={chatContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-6 sm:px-10 py-12 space-y-10 no-scrollbar w-full max-w-5xl mx-auto flex flex-col">
               {messages.map((m) => (
                 m.type === "system" ? (
                   <div key={m.id} className="w-full flex justify-center py-4">
@@ -208,7 +226,8 @@ export default function Page() {
                 ) : (
                   <div key={m.id} className={`flex gap-4 sm:gap-5 ${m.userName === myName ? 'flex-row-reverse' : 'flex-row'} animate-in fade-in`}>
                     <div className="w-10 h-10 rounded-full shrink-0 overflow-hidden border border-white/10 shadow-md self-end aspect-square ring-1 ring-black/5">
-                      <img src={m.userPhoto} onError={(e) => e.currentTarget.src = RANDOM_AVATARS[0]} className="w-full h-full object-cover" />
+                      {/* 무한 루프 차단 (onerror = null) */}
+                      <img src={m.userPhoto} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = RANDOM_AVATARS[0]; }} className="w-full h-full object-cover" />
                     </div>
                     <div className={`flex flex-col ${m.userName === myName ? 'items-end' : 'items-start'} max-w-[75%]`}>
                       <span className={`${theme.subText} text-[9px] font-black mb-2 px-1 uppercase tracking-widest`}>{m.userName}</span>
@@ -235,13 +254,13 @@ export default function Page() {
         )}
       </main>
 
-      {/* 👤 프로필 수정 모달 유지 */}
+      {/* 👤 프로필 수정 모달 */}
       {isEditingProfile && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
           <div className={`${theme.card} w-full max-w-[380px] p-10 rounded-[48px] border border-white/20 flex flex-col items-center shadow-full`}>
             <h2 className="text-indigo-400 text-[10px] font-black uppercase tracking-[0.4em] mb-8">Update ID</h2>
             <div className="w-28 h-28 rounded-full border-4 border-indigo-500/30 overflow-hidden mb-6 cursor-pointer relative group aspect-square shadow-xl" onClick={() => profileInputRef.current.click()}>
-              <img src={tempImg || myProfileImg} className="w-full h-full object-cover" />
+              <img src={tempImg || myProfileImg} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = RANDOM_AVATARS[0]; }} className="w-full h-full object-cover" />
               <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><span className="text-white text-[9px] font-black">CHANGE</span></div>
             </div>
             <input type="file" ref={profileInputRef} className="hidden" accept="image/*" onChange={(e) => { const f=e.target.files[0]; if(f){ const r=new FileReader(); r.onloadend=()=>setTempImg(r.result); r.readAsDataURL(f); }}} />
@@ -254,14 +273,14 @@ export default function Page() {
         </div>
       )}
 
-      {/* 👥 유저 사이드바 유지 */}
+      {/* 👥 유저 사이드바 */}
       {showUserList && (
         <div className={`absolute top-24 right-8 w-72 p-8 rounded-[40px] ${theme.card} z-50 animate-in slide-in-from-right duration-300 shadow-2xl border border-white/10`}>
           <h3 className="text-indigo-400 text-[10px] font-black uppercase tracking-[0.3em] mb-8">Active Nodes</h3>
           <div className="space-y-5 max-h-[40vh] overflow-y-auto no-scrollbar">
             {activeUsers.map((user, idx) => (
               <div key={idx} className="flex items-center gap-4 group">
-                <div className="w-10 h-10 rounded-full overflow-hidden border border-indigo-500/10 shrink-0 aspect-square"><img src={user.photo} onError={(e) => e.currentTarget.src = RANDOM_AVATARS[0]} className="w-full h-full object-cover transition-transform group-hover:scale-110" /></div>
+                <div className="w-10 h-10 rounded-full overflow-hidden border border-indigo-500/10 shrink-0 aspect-square"><img src={user.photo} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = RANDOM_AVATARS[0]; }} className="w-full h-full object-cover transition-transform group-hover:scale-110" /></div>
                 <span className={`${theme.text} font-black text-[14px] tracking-tight truncate`}>{user.name}</span>
               </div>
             ))}
