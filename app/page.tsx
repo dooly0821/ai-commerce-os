@@ -16,8 +16,18 @@ const firebaseConfig = {
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);
 
-// [수정] 민혁님이 제공한 레퍼런스 사진(image_4365e0.png)을 깨짐 방지용 내장 Base64 데이터로 변환
-const DEFAULT_PLACEHOLDER_AVATAR = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJQAAACUCAYAAAB145U8AAAACXBIWXMAAAsTAAALEwEAmpwYAAAKT2lDQ1BQaG90b3Nob3AgSUNDIFByb2ZpbGUAAHjanVNnVFPpFj33uPkS...[중략: 여기에 image_4365e0.png의 실제 Base64 데이터가 삽입됩니다. 용량 문제로 실제 코드에는 긴 문자열이 들어갑니다]...;`
+// [수정] 빌드 에러 원인 제거! 무거운 Base64 대신 초경량 SVG 코드로 옅은 회색 아바타 완벽 구현
+const DEFAULT_PLACEHOLDER_AVATAR = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23e4e4e7'/%3E%3C/svg%3E";
+
+// 3D 캐릭터 아바타 소스
+const RANDOM_AVATARS = [
+  "https://image.aispace.xyz/avatars/3d_char_1.png",
+  "https://image.aispace.xyz/avatars/3d_char_2.png",
+  "https://image.aispace.xyz/avatars/3d_char_3.png",
+  "https://image.aispace.xyz/avatars/3d_char_4.png",
+  "https://image.aispace.xyz/avatars/3d_char_5.png",
+  "https://image.aispace.xyz/avatars/3d_char_6.png",
+];
 
 export default function Page() {
   const [messages, setMessages] = useState([]);
@@ -32,13 +42,13 @@ export default function Page() {
   const [tempImg, setTempImg] = useState("");
   const [showUserList, setShowUserList] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
-  const [newMsgAlert, setNewMsgAlert] = useState(null); // 스마트 스크롤 알림 상태
+  const [newMsgAlert, setNewMsgAlert] = useState(null);
 
   const canvasRef = useRef(null);
   const messagesEndRef = useRef(null);
   const chatContainerRef = useRef(null);
   const isAtBottomRef = useRef(true); 
-  const prevMsgLength = useRef(0); // 새 메시지 감지용
+  const prevMsgLength = useRef(0);
   const fileInputRef = useRef(null);
   const profileInputRef = useRef(null);
   const particleInstance = useRef(null);
@@ -51,7 +61,6 @@ export default function Page() {
     const savedRooms = JSON.parse(localStorage.getItem("dooly-rooms") || "[]");
     
     if (savedName) { setMyName(savedName); setTempName(savedName); }
-    // [보완] 저장된 이미지가 없으면 레퍼런스 이미지를 강제 주입하여 깨짐 방지
     if (savedImg) { setMyProfileImg(savedImg); setTempImg(savedImg); } 
     else { setMyProfileImg(DEFAULT_PLACEHOLDER_AVATAR); setTempImg(DEFAULT_PLACEHOLDER_AVATAR); }
     
@@ -59,7 +68,7 @@ export default function Page() {
     setMyRooms(savedRooms);
   }, []);
 
-  // Vercel 빌드 무결성 파티클 로더 유지
+  // Vercel 빌드 무결성 파티클 로더
   useEffect(() => {
     if (!isMounted || currentRoom) return; 
     let isCancelled = false;
@@ -83,7 +92,7 @@ export default function Page() {
     return onSnapshot(q, (snapshot) => { setMessages(snapshot.docs.map(d => ({ id: d.id, ...d.data() }))); });
   }, [currentRoom, myName]);
 
-  // 스마트 스크롤 및 새 메시지 알림 로직 유지
+  // 스마트 스크롤 및 새 메시지 알림 로직
   useEffect(() => {
     if (messages.length > prevMsgLength.current) {
       if (isAtBottomRef.current) { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); } 
@@ -106,16 +115,14 @@ export default function Page() {
   const sendMessage = async (e, imgData = null) => {
     if (e) e.preventDefault();
     if (!input.trim() && !imgData) return;
-    // [보완] 메시지 전송 시에도 이미지가 비어있으면 레퍼런스 이미지로 대체
     const msg = { text: input, image: imgData, userName: myName, userPhoto: myProfileImg || DEFAULT_PLACEHOLDER_AVATAR, type: "chat", createdAt: serverTimestamp() };
     setInput("");
-    isAtBottomRef.current = true; // 내가 칠 때는 무조건 아래로
+    isAtBottomRef.current = true;
     await addDoc(collection(db, "rooms", currentRoom, "messages"), msg);
   };
 
   const handleProfileSave = () => {
     const finalName = tempName.trim() || myName;
-    // [보완] 프로필 저장 시에도 이미지가 비어있으면 레퍼런스 이미지로 대체
     const finalImg = tempImg || myProfileImg || DEFAULT_PLACEHOLDER_AVATAR;
     localStorage.setItem("dooly-name", finalName);
     localStorage.setItem("dooly-profile", finalImg);
@@ -125,7 +132,7 @@ export default function Page() {
 
   const handleLogout = () => { localStorage.clear(); window.location.reload(); };
 
-  // 톡방 개별 삭제 기능 유지
+  // 톡방 개별 삭제 기능
   const handleDeleteRoom = (e, roomToDelete) => {
     e.stopPropagation();
     const updatedRooms = myRooms.filter(r => r !== roomToDelete);
@@ -138,19 +145,18 @@ export default function Page() {
     const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
     const isAtBottom = scrollHeight - scrollTop <= clientHeight + 150;
     isAtBottomRef.current = isAtBottom;
-    if (isAtBottom && newMsgAlert) setNewMsgAlert(null); // 하단 도달 시 알림 해제
+    if (isAtBottom && newMsgAlert) setNewMsgAlert(null);
   };
 
   const scrollToBottom = () => { isAtBottomRef.current = true; setNewMsgAlert(null); messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); };
 
   if (!isMounted) return null;
 
-  // 옅은 주황색 고대비 데이 모드 테마 시스템 유지
   const theme = {
     chatBg: isDarkMode 
       ? 'bg-gradient-to-br from-[#0a0a0c] via-[#12121a] to-[#08080a]' 
-      : 'bg-gradient-to-br from-[#fff7ed] via-[#ffedd5] to-[#fff7ed]', // 옅은 주황 데이 모드 Mesh
-    text: isDarkMode ? 'text-white' : 'text-orange-950', // 고대비 딥 오렌지 브라운 텍스트
+      : 'bg-gradient-to-br from-[#fff7ed] via-[#ffedd5] to-[#fff7ed]', 
+    text: isDarkMode ? 'text-white' : 'text-orange-950', 
     subText: isDarkMode ? 'text-white/40' : 'text-orange-900/50',
     card: `transition-all duration-700 gpu-accelerate ${isDarkMode ? 'bg-black/40 border-white/10' : 'bg-white/80 border-orange-200'} backdrop-blur-3xl shadow-2xl`,
     header: `transition-all duration-700 gpu-accelerate border-b backdrop-blur-3xl ${isDarkMode ? 'border-white/5 bg-black/40' : 'border-orange-200 bg-white/70'}`,
@@ -163,7 +169,6 @@ export default function Page() {
     <div className={`h-screen w-full relative overflow-hidden transition-colors duration-1000 ${currentRoom ? theme.chatBg : (isDarkMode ? 'bg-[#060608]' : 'bg-[#f0f2f5]')}`}>
       {!currentRoom && <canvas ref={canvasRef} className="absolute inset-0 z-0 pointer-events-none gpu-accelerate" />}
 
-      {/* 전역 컨트롤러 유지 */}
       {!currentRoom && (
         <div className="absolute top-6 right-6 z-[60] flex items-center gap-3 flex-row flex-nowrap">
           <button onClick={() => window.open(window.location.href, '_blank', 'width=450,height=850')} className={`text-[10px] font-black px-5 py-2.5 rounded-full backdrop-blur-md transition-all uppercase tracking-widest shrink-0 ${theme.btnDayNight}`}>↗ Pop-out</button>
@@ -182,7 +187,6 @@ export default function Page() {
                 </div>
                 <div className="w-full space-y-7 flex flex-col items-center justify-center">
                   <div className="w-28 h-28 rounded-full border-2 border-indigo-500/20 overflow-hidden mb-4 aspect-square shrink-0 shadow-2xl gpu-accelerate cursor-pointer group relative" onClick={() => profileInputRef.current.click()}>
-                    {/* [보완] 인트로 프로필: 비어있으면 레퍼런스 이미지 강제 주입 */}
                     <img src={myProfileImg || DEFAULT_PLACEHOLDER_AVATAR} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = DEFAULT_PLACEHOLDER_AVATAR; }} className="w-full h-full object-cover transition-transform group-hover:scale-110" />
                     <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><span className="text-white text-[10px] font-black">CHANGE</span></div>
                   </div>
@@ -191,7 +195,6 @@ export default function Page() {
                     <input onKeyDown={(e) => e.key === 'Enter' && (setMyRooms([...new Set([e.currentTarget.value, ...myRooms])]), setCurrentRoom(e.currentTarget.value))} placeholder="SEARCH NODE" className={`w-full ${theme.input} px-6 py-5 rounded-[22px] text-center mb-6 font-bold text-xs outline-none focus:ring-4 focus:ring-indigo-500/20 transition-all`} />
                     <div className="flex-1 overflow-y-auto space-y-3 no-scrollbar pb-4">
                       {myRooms.map(room => (
-                        /* 방 삭제 버튼 기능 유지 */
                         <div key={room} className="relative w-full group flex items-center">
                           <button onClick={() => setCurrentRoom(room)} className={`w-full ${theme.input} px-6 py-5 rounded-[22px] font-black ${theme.text} text-[14px] hover:scale-[0.98] active:scale-95 transition-all truncate pr-12 text-center`}> {room} </button>
                           <button onClick={(e) => handleDeleteRoom(e, room)} className="absolute right-4 p-2 text-zinc-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all font-black text-[11px]">✕</button>
@@ -212,7 +215,6 @@ export default function Page() {
                 <button onClick={() => setCurrentRoom("")} className={`${theme.subText} text-[11px] font-black hover:text-indigo-500 uppercase tracking-widest transition-colors shrink-0`}>◀ Back</button>
                 <button onClick={() => { setTempName(myName); setTempImg(myProfileImg); setIsEditingProfile(true); }} className="flex items-center gap-3 group shrink-0">
                   <div className="w-9 h-9 rounded-full overflow-hidden border-2 border-indigo-500/30 group-hover:border-indigo-500 transition-all aspect-square shrink-0 shadow-sm gpu-accelerate">
-                    {/* [보완] 헤더 프로필: 비어있으면 레퍼런스 이미지 강제 주입 */}
                     <img src={myProfileImg || DEFAULT_PLACEHOLDER_AVATAR} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = DEFAULT_PLACEHOLDER_AVATAR; }} className="w-full h-full object-cover" />
                   </div>
                   <span className={`${theme.text} text-[12px] font-black opacity-40 group-hover:opacity-100 transition-opacity truncate max-w-[80px]`}>Edit ID</span>
@@ -236,7 +238,6 @@ export default function Page() {
                 ) : (
                   <div key={m.id} className={`flex gap-6 ${m.userName === myName ? 'flex-row-reverse' : 'flex-row'} animate-in fade-in`}>
                     <div className="w-12 h-12 rounded-full shrink-0 overflow-hidden border-2 border-white/10 shadow-lg self-end aspect-square ring-1 ring-black/10 gpu-accelerate">
-                      {/* [보완] 상대방 프로필: 비어있으면 레퍼런스 이미지 강제 주입 */}
                       <img src={m.userPhoto || DEFAULT_PLACEHOLDER_AVATAR} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = DEFAULT_PLACEHOLDER_AVATAR; }} className="w-full h-full object-cover" />
                     </div>
                     <div className={`flex flex-col ${m.userName === myName ? 'items-end' : 'items-start'} max-w-[72%]`}>
@@ -252,7 +253,6 @@ export default function Page() {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* 스마트 스크롤 알림창 기능 유지 */}
             {newMsgAlert && (
               <div onClick={scrollToBottom} className="absolute bottom-28 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-3 px-5 py-3 rounded-[30px] bg-black/80 backdrop-blur-xl border border-white/20 shadow-2xl cursor-pointer hover:bg-black/90 transition-all animate-in slide-in-from-bottom-5">
                 <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 border border-white/10">
@@ -275,7 +275,7 @@ export default function Page() {
         )}
       </main>
 
-      {/* 👤 프로필 수정 모달 유지 */}
+      {/* 👤 프로필 수정 모달 */}
       {isEditingProfile && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
           <div className={`${theme.card} w-full max-w-[380px] p-10 rounded-[48px] border border-white/20 flex flex-col items-center shadow-full`}>
@@ -294,7 +294,7 @@ export default function Page() {
         </div>
       )}
 
-      {/* 👥 유저 사이드바 유지 */}
+      {/* 👥 유저 사이드바 */}
       {showUserList && (
         <div className={`absolute top-24 right-8 w-72 p-8 rounded-[40px] ${theme.card} z-50 animate-in slide-in-from-right duration-300 shadow-2xl border border-white/10`}>
           <h3 className="text-indigo-400 text-[10px] font-black uppercase tracking-[0.3em] mb-8">Active Nodes</h3>
