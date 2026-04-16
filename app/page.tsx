@@ -16,7 +16,7 @@ const firebaseConfig = {
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);
 
-// [유지] 빌드 에러 원천 차단! 무거운 Base64 대신 초경량 SVG 코드로 옅은 회색 아바타 완벽 구현
+// 초경량 SVG 코드 아바타 (깨짐 완벽 방지)
 const DEFAULT_PLACEHOLDER_AVATAR = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23e4e4e7'/%3E%3C/svg%3E";
 
 const RANDOM_AVATARS = [
@@ -42,14 +42,15 @@ export default function Page() {
   const [showUserList, setShowUserList] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   
-  const [newMsgAlert, setNewMsgAlert] = useState(null); // 하단 스마트 스크롤용 알림
-  const [toastMsg, setToastMsg] = useState(null); // [추가] 카톡 스타일 글로벌 Toast 알림
+  const [newMsgAlert, setNewMsgAlert] = useState(null); 
+  const [toastMsg, setToastMsg] = useState(null); 
 
   const canvasRef = useRef(null);
   const messagesEndRef = useRef(null);
   const chatContainerRef = useRef(null);
   const isAtBottomRef = useRef(true); 
-  const isInitialLoad = useRef(true); // [추가] 첫 로딩 시 알림 폭탄 방지용
+  const isInitialLoad = useRef(true); 
+  const prevMsgLength = useRef(0);
 
   const fileInputRef = useRef(null);
   const profileInputRef = useRef(null);
@@ -70,13 +71,12 @@ export default function Page() {
     setMyRooms(savedRooms);
   }, []);
 
-  // 방 입장 시 초기화
   useEffect(() => {
     isInitialLoad.current = true;
     isAtBottomRef.current = true;
   }, [currentRoom]);
 
-  // Vercel 빌드 무결성 파티클 로더
+  // 파티클 로더
   useEffect(() => {
     if (!isMounted || currentRoom) return; 
     let isCancelled = false;
@@ -93,7 +93,7 @@ export default function Page() {
     return () => { isCancelled = true; if (particleInstance.current) { try { if (typeof particleInstance.current.destroy === 'function') particleInstance.current.destroy(); } catch(err) {} particleInstance.current = null; } };
   }, [isMounted, currentRoom]);
 
-  // [핵심] 실시간 메시지 동기화 및 카톡 스타일 알림 로직
+  // 실시간 메시지 동기화 및 카톡 스타일 글로벌 알림
   useEffect(() => {
     if (!currentRoom || !myName) return;
     const q = query(collection(db, "rooms", currentRoom, "messages"), orderBy("createdAt", "asc"));
@@ -105,32 +105,39 @@ export default function Page() {
         isInitialLoad.current = false;
         setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "auto" }), 100);
       } else {
-        // 새로 추가된 메시지만 감지
         snapshot.docChanges().forEach(change => {
           if (change.type === "added") {
             const msg = change.doc.data();
             if (msg.userName !== myName) {
-              // 1. OS 권한 바탕화면 팝업 알림 (카톡 PC버전 스타일)
               if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
                 new Notification(msg.userName, { body: msg.text || '사진을 전송했습니다.', icon: msg.userPhoto || DEFAULT_PLACEHOLDER_AVATAR });
               }
-              
-              // 2. 인앱 상단 글로벌 Toast 알림 (카톡 모바일 스타일)
               setToastMsg({ name: msg.userName, text: msg.text || '사진 전송됨', photo: msg.userPhoto });
               setTimeout(() => setToastMsg(null), 4000);
-
-              // 3. 하단 스마트 스크롤 알림
-              if (!isAtBottomRef.current) {
-                setNewMsgAlert({ name: msg.userName, text: msg.text || '사진 전송됨', photo: msg.userPhoto });
-              } else {
-                setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
-              }
             }
           }
         });
       }
     });
   }, [currentRoom, myName]);
+
+  // [수정] 렌더링 지연 해결용 강제 스크롤 로직 (타이밍 버그 픽스)
+  useEffect(() => {
+    if (messages.length > prevMsgLength.current) {
+      if (isAtBottomRef.current) {
+        // 브라우저가 새 메시지를 화면에 다 그릴 수 있도록 0.1초 지연 후 하단 스크롤
+        setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        }, 100);
+      } else {
+        const lastMsg = messages[messages.length - 1];
+        if (lastMsg && lastMsg.userName !== myName && prevMsgLength.current !== 0) {
+          setNewMsgAlert({ text: lastMsg.text || '사진 전송됨', name: lastMsg.userName, photo: lastMsg.userPhoto });
+        }
+      }
+    }
+    prevMsgLength.current = messages.length;
+  }, [messages, myName]);
 
   const activeUsers = useMemo(() => {
     const usersMap = new Map();
@@ -143,7 +150,13 @@ export default function Page() {
     if (!input.trim() && !imgData) return;
     const msg = { text: input, image: imgData, userName: myName, userPhoto: myProfileImg || DEFAULT_PLACEHOLDER_AVATAR, type: "chat", createdAt: serverTimestamp() };
     setInput("");
+    
+    // [수정] 내가 보낼 때는 무조건 바닥으로 강제 인식시키고 즉시 스크롤 실행
     isAtBottomRef.current = true;
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 50);
+
     await addDoc(collection(db, "rooms", currentRoom, "messages"), msg);
   };
 
@@ -155,7 +168,6 @@ export default function Page() {
     setMyName(finalName); setMyProfileImg(finalImg);
     setIsEditingProfile(false);
     
-    // [추가] 시작할 때 브라우저 알림 권한 요청 (팝업창 및 바탕화면 알림용)
     if (typeof window !== 'undefined' && "Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
       Notification.requestPermission();
     }
@@ -178,7 +190,11 @@ export default function Page() {
     if (isAtBottom && newMsgAlert) setNewMsgAlert(null);
   };
 
-  const scrollToBottom = () => { isAtBottomRef.current = true; setNewMsgAlert(null); messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); };
+  const scrollToBottom = () => { 
+    isAtBottomRef.current = true; 
+    setNewMsgAlert(null); 
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); 
+  };
 
   if (!isMounted) return null;
 
@@ -199,7 +215,7 @@ export default function Page() {
     <div className={`h-screen w-full relative overflow-hidden transition-colors duration-1000 ${currentRoom ? theme.chatBg : (isDarkMode ? 'bg-[#060608]' : 'bg-[#f0f2f5]')}`}>
       {!currentRoom && <canvas ref={canvasRef} className="absolute inset-0 z-0 pointer-events-none gpu-accelerate" />}
 
-      {/* 🔔 카톡 스타일 글로벌 알림창 (Toast) - 화면 최상단 우측에 렌더링 */}
+      {/* 🔔 카톡 스타일 글로벌 알림창 (Toast) */}
       {toastMsg && (
         <div className={`absolute top-6 right-6 z-[200] flex items-center gap-4 px-6 py-4 rounded-[28px] backdrop-blur-2xl border shadow-2xl animate-in slide-in-from-top-6 fade-in duration-300 pointer-events-none ${isDarkMode ? 'bg-white/10 border-white/20 text-white' : 'bg-orange-900/90 border-orange-900/20 text-white'}`}>
           <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 border border-white/10 shadow-inner">
@@ -265,6 +281,7 @@ export default function Page() {
                 </button>
               </div>
               <div className="flex justify-center min-w-0"><h1 className="text-xl sm:text-2xl font-black italic text-indigo-500 uppercase tracking-tighter truncate px-2 sm:px-6">{currentRoom}</h1></div>
+              
               <div className="flex justify-end items-center gap-2 sm:gap-4 flex-nowrap shrink-0">
                 <button onClick={() => setShowUserList(!showUserList)} className={`px-3 py-2 sm:px-5 sm:py-2.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase transition-all shrink-0 ${isDarkMode ? 'bg-white/10 text-white/70 hover:bg-white/20' : 'bg-orange-100 text-orange-900 hover:bg-orange-200 shadow-sm'}`}>Users ({activeUsers.length})</button>
                 <button onClick={() => setIsDarkMode(!isDarkMode)} className={`px-3 py-2 sm:px-5 sm:py-2.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase transition-all shrink-0 ${isDarkMode ? 'bg-white/10 text-white/70 hover:bg-white/20' : 'bg-orange-100 text-orange-900 hover:bg-orange-200 shadow-sm'}`}>{isDarkMode ? "Day" : "Night"}</button>
